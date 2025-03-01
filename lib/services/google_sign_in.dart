@@ -5,6 +5,7 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:google_sign_in_platform_interface/google_sign_in_platform_interface.dart';
 import 'package:google_sign_in_web/google_sign_in_web.dart' as web;
+import 'package:cached_network_image/cached_network_image.dart'; // Добавим зависимость
 
 class SignIn extends StatefulWidget {
   const SignIn({Key? key}) : super(key: key);
@@ -136,18 +137,18 @@ class _SignInState extends State<SignIn> {
   Widget googleStyledButton({required String text, required VoidCallback onPressed}) {
     return InkWell(
       onTap: onPressed,
-      borderRadius: BorderRadius.circular(5),
+      borderRadius: BorderRadius.circular(8),
       child: Container(
-        height: 50,
+        height: 55,
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(5),
-          border: Border.all(color: Colors.grey.shade400),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.blue.shade600),
           color: Colors.white,
           boxShadow: [
             BoxShadow(
-              color: Colors.grey.withOpacity(0.3),
-              blurRadius: 4,
-              offset: const Offset(0, 2),
+              color: Colors.grey.withOpacity(0.2),
+              blurRadius: 6,
+              offset: const Offset(0, 3),
             ),
           ],
         ),
@@ -161,7 +162,7 @@ class _SignInState extends State<SignIn> {
             const SizedBox(width: 10),
             Text(
               text,
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: Colors.black54),
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: Colors.black87),
             ),
           ],
         ),
@@ -172,45 +173,89 @@ class _SignInState extends State<SignIn> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.grey[100], // Стиль веб-страницы
       body: Center(
         child: SizedBox(
-          width: 500,
+          width: 600,
           child: SingleChildScrollView(
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+              crossAxisAlignment: CrossAxisAlignment.center,
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 if (loading) const LinearProgressIndicator(),
                 if (user == null) ...[
-                  const SizedBox(height: 16),
-                  (GoogleSignInPlatform.instance as web.GoogleSignInPlugin).renderButton(configuration: web.GSIButtonConfiguration()),
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 8,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      children: [
+                        const Text(
+                          'Войти с помощью Google',
+                          style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 20),
+                        (GoogleSignInPlatform.instance as web.GoogleSignInPlugin).renderButton(configuration: web.GSIButtonConfiguration()),
+                      ],
+                    ),
+                  ),
                 ] else ...[
                   const SizedBox(height: 16),
                   Text(
                     "Вы успешно вошли как ${user!.displayName}",
                     textAlign: TextAlign.center,
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 16),
-                  DecoratedBox(
+                  Container(
+                    padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.grey.shade400),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.blue.shade400),
+                      color: Colors.white,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 8,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
                     ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        children: [
-                          ListTile(
-                            leading: user!.photoUrl.isEmpty ? const Icon(Icons.person) : CircleAvatar(backgroundImage: NetworkImage(user!.photoUrl)),
-                            title: Text(user!.displayName),
-                            subtitle: Text(user!.email),
-                          ),
-                        ],
-                      ),
+                    child: Row(
+                      children: [
+                        CircleAvatar(
+                          backgroundImage: user!.photoUrl.isEmpty
+                              ? const AssetImage('assets/default_avatar.png') // Добавьте дефолтное изображение
+                              : CachedNetworkImageProvider(user!.photoUrl),
+                          radius: 30,
+                        ),
+                        const SizedBox(width: 16),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              user!.displayName,
+                              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                            ),
+                            Text(
+                              user!.email,
+                              style: const TextStyle(fontSize: 14, color: Colors.grey),
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 20),
                   googleStyledButton(
                     text: 'Выйти из аккаунта',
                     onPressed: () async {

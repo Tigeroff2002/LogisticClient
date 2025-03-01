@@ -1,7 +1,6 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:logist_client/services/google_sign_in.dart';
 import 'package:logist_client/shared_pref_cached_data.dart';
 import 'package:logist_client/widgets/auth_screen.dart';
 
@@ -34,33 +33,10 @@ class HomePage extends StatelessWidget {
               children: [
                 ElevatedButton(
                   onPressed: () {
-                    MySharedPreferences mySharedPreferences =
-                        new MySharedPreferences();
-
-                    var cachedData = mySharedPreferences.getDataIfNotExpired();
-
-                    cachedData.then((value) {
-                      if (value == null) {
-                        Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                                builder: (context) => AuthScreen()));
-                      }
-                      var json = jsonDecode(value.toString());
-
-                      var existedUser = json['user_id'];
-
-                      existedUser == null
-                          ? Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                  builder: (context) => AuthScreen()),
-                            )
-                          : Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                  builder: (context) => AuthScreen()));
-                    });
+                    Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => AuthPage()));
                   },
                   child: Text(
                     'Запуск приложения',
