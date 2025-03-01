@@ -23,6 +23,7 @@ dependencies:
   webview_flutter: ^4.4.0
   js: ^0.6.3
   flutter_svg: ^1.0.0
+  cached_network_image: ^3.2.1
 
 flutter_icons:
   android: truef
