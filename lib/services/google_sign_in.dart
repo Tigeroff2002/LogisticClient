@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
-import 'package:http/http.dart' as http;
+import 'package:flutter_svg/flutter_svg.dart';
 import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:google_sign_in_platform_interface/google_sign_in_platform_interface.dart';
 import 'package:google_sign_in_web/google_sign_in_web.dart' as web;
 
@@ -14,36 +15,94 @@ class SignIn extends StatefulWidget {
 
 GoogleSignIn googleSignIn = GoogleSignIn(clientId: "118733131205-uj4ulrnj7b9qjms7n8ba971nj2qn5hab.apps.googleusercontent.com");
 
+class CustomUser {
+  final String id;
+  final String displayName;
+  final String email;
+  final String photoUrl;
+
+  CustomUser({
+    required this.id,
+    required this.displayName,
+    required this.email,
+    required this.photoUrl,
+  });
+}
+
 class _SignInState extends State<SignIn> {
   bool loading = false;
-  GoogleSignInAccount? user;
+  CustomUser? user;
+
+  bool isServerRequested = false; // Запрос был отправлен
+  bool isServerOk = false; // Ответ сервера был успешным
+  bool isPageReloaded = false; // Проверяем, была ли уже перезагружена страница
+  bool isTokenAvailable = false; // Проверка, есть ли токен в SharedPreferences
 
   @override
   void initState() {
     super.initState();
+    _checkCachedToken(); // Check if there's a cached token
+
     googleSignIn.onCurrentUserChanged.listen((GoogleSignInAccount? account) async {
       debugPrint('User changed: $account');
-      setState(() {
-        user = account;
-      });
+      if (account != null) {
+        setState(() {
+          user = CustomUser(
+            id: account.id,
+            displayName: account.displayName ?? 'Неизвестный пользователь',
+            email: account.email,
+            photoUrl: account.photoUrl ?? '',
+          );
+        });
+
+        // After user logs in, save data to cache
+        _saveUserDataToCache(account);
+      } else {
+        setState(() {
+          user = null;
+        });
+      }
     });
 
-    googleSignIn.signInSilently();
+    googleSignIn.signInSilently(); // Attempt silent sign-in
   }
 
-  Future<void> sendJWTToBackend(String? jwtToken) async {
-    try {
-      final response = await http.get(
-        Uri.parse('https://localhost:7247/Users/me'),
-        headers: {'Authorization': 'Bearer $jwtToken'},
-      );
+  Future<void> _checkCachedToken() async {
+    // Check if the JWT token is already cached
+    final prefs = await SharedPreferences.getInstance();
+    final cachedToken = prefs.getString('jwt_token');
+    final cachedDisplayName = prefs.getString('displayName');
+    final cachedEmail = prefs.getString('email');
+    final cachedPhotoUrl = prefs.getString('photoUrl');
 
-      if (response.statusCode != 200) {
-        _showErrorAlert('Ошибка: ${response.statusCode}');
-      }
-    } catch (e) {
-      _showErrorAlert('Ошибка аутентификации: $e');
+    if (cachedToken != null && cachedToken.isNotEmpty) {
+      setState(() {
+        isTokenAvailable = true;
+        // Load user data from cache
+        user = CustomUser(
+          id: cachedToken,
+          displayName: cachedDisplayName ?? 'Неизвестный пользователь',
+          email: cachedEmail ?? 'Неизвестная почта',
+          photoUrl: cachedPhotoUrl ?? '',
+        );
+      });
     }
+  }
+
+  Future<void> _saveUserDataToCache(GoogleSignInAccount account) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('jwt_token', (await account.authentication).idToken ?? '');
+    await prefs.setString('displayName', account.displayName ?? 'Неизвестный пользователь');
+    await prefs.setString('email', account.email);
+    await prefs.setString('photoUrl', account.photoUrl ?? '');
+  }
+
+  Future<void> _clearCache() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('jwt_token');
+    await prefs.remove('displayName');
+    await prefs.remove('email');
+    await prefs.remove('photoUrl');
   }
 
   void _showErrorAlert(String message) {
@@ -55,7 +114,17 @@ class _SignInState extends State<SignIn> {
           content: Text(message),
           actions: <Widget>[
             TextButton(
-              onPressed: () => Navigator.of(context).pop(),
+              onPressed: () {
+                Navigator.of(context).pop();
+                if (!isPageReloaded) {
+                  // Перезагружаем страницу один раз
+                  isPageReloaded = true; // Устанавливаем флаг, чтобы не перезагружать страницу снова
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(builder: (context) => const SignIn()),
+                  );
+                }
+              },
               child: const Text('ОК'),
             ),
           ],
@@ -85,8 +154,8 @@ class _SignInState extends State<SignIn> {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Image.asset(
-              'assets/google_logo.png',
+            SvgPicture.network(
+              'https://upload.wikimedia.org/wikipedia/commons/2/2f/Google_2015_logo.svg',
               height: 24,
             ),
             const SizedBox(width: 10),
@@ -118,7 +187,7 @@ class _SignInState extends State<SignIn> {
                 ] else ...[
                   const SizedBox(height: 16),
                   Text(
-                    "Вы успешно вошли как ${user!.displayName ?? 'Неизвестный пользователь'}",
+                    "Вы успешно вошли как ${user!.displayName}",
                     textAlign: TextAlign.center,
                     style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
@@ -133,18 +202,9 @@ class _SignInState extends State<SignIn> {
                       child: Column(
                         children: [
                           ListTile(
-                            leading: GoogleUserCircleAvatar(identity: user!),
-                            title: Text(user?.displayName ?? ''),
-                            subtitle: Text(user?.email ?? ''),
-                          ),
-                          FutureBuilder<GoogleSignInAuthentication>(
-                            future: user!.authentication,
-                            builder: (context, auth) {
-                              if (auth.connectionState == ConnectionState.done && auth.data != null) {
-                                WidgetsBinding.instance.addPostFrameCallback((_) => sendJWTToBackend(auth.data!.idToken));
-                              }
-                              return const SizedBox.shrink();
-                            },
+                            leading: user!.photoUrl.isEmpty ? const Icon(Icons.person) : CircleAvatar(backgroundImage: NetworkImage(user!.photoUrl)),
+                            title: Text(user!.displayName),
+                            subtitle: Text(user!.email),
                           ),
                         ],
                       ),
@@ -156,10 +216,14 @@ class _SignInState extends State<SignIn> {
                     onPressed: () async {
                       setState(() => loading = true);
                       await googleSignIn.signOut();
-                      setState(() => loading = false);
+                      await _clearCache();
+                      setState(() {
+                        loading = false;
+                        user = null; // Reset user to null on sign out
+                      });
                     },
                   ),
-                ]
+                ],
               ],
             ),
           ),
