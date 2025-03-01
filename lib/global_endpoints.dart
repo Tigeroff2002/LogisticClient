@@ -7,5 +7,5 @@ class GlobalEndpoints {
 
   final String currentMobilePort = ":3500";
 
-// flutter run -d chrome --web-renderer html --web-port 3000
+// flutter run -d chrome --web-hostname localhost --web-port 3000
 }

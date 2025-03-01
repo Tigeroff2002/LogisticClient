@@ -1,21 +1,51 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <base href="$FLUTTER_BASE_HREF">
   <meta charset="UTF-8">
-  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="A new Flutter project.">
-  <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <meta name="apple-mobile-web-app-title" content="logist_client">
-  <link rel="apple-touch-icon" href="icons/Icon-192.png">
-  <link rel="icon" type="image/png" href="favicon.png"/>
+  <meta name="google-signin-client_id" content="666431505457-ca1mgtqrli0nqv9r87ek40elo4bqe0lk.apps.googleusercontent.com">
   <title>logist_client</title>
-  <link rel="manifest" href="manifest.json">
-  <!-- Load Google Identity Services (GIS) -->
-  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <link rel="icon" type="image/png" href="favicon.png">
+
+  <script src="https://apis.google.com/js/platform.js" async defer></script>
+  <script>
+    // Wait for platform.js to load and then load api.js
+    window.addEventListener('load', function() {
+      var platformScriptLoaded = false;
+
+      // Ensure platform.js is fully loaded before proceeding to load api.js
+      if (window.gapi && window.gapi.load) {
+        platformScriptLoaded = true;
+      }
+
+      if (platformScriptLoaded) {
+        // Dynamically load the api.js script
+        const apiScript = document.createElement('script');
+        apiScript.src = "https://apis.google.com/js/api.js";
+        apiScript.async = true;
+        apiScript.defer = true;
+        document.body.appendChild(apiScript);
+      } else {
+        console.error("Platform script not fully loaded!");
+      }
+    });
+  </script>
+
+  <!-- Flutter JS script -->
+  <script src="flutter.js" defer></script>
 </head>
 <body>
-  <script src="https://apis.google.com/js/platform.js" async defer></script>
+  <script>
+    window.addEventListener('load', function(ev) {
+      // Download main.dart.js (Flutter app)
+      _flutter.loader.loadEntrypoint({
+        serviceWorker: { serviceWorkerVersion: null },
+        onEntrypointLoaded: function(engineInitializer) {
+          engineInitializer.initializeEngine().then(function(appRunner) {
+            appRunner.runApp();
+          });
+        }
+      });
+    });
+  </script>
 </body>
 </html>
