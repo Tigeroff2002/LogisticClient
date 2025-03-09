@@ -110,7 +110,12 @@ class _SignInState extends State<SignIn> {
 
   Future<void> _saveUserDataToCache(GoogleSignInAccount account) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('jwt_token', (await account.authentication).idToken ?? '');
+
+    var jwtToken = (await account.authentication).idToken ?? '';
+
+    print('Bearer ' + jwtToken);
+    
+    await prefs.setString('jwt_token', jwtToken);
     await prefs.setString('displayName', account.displayName ?? 'Неизвестный пользователь');
     await prefs.setString('email', account.email);
     await prefs.setString('photoUrl', account.photoUrl ?? '');
