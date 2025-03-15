@@ -32,13 +32,8 @@ class _UserPageState extends State<UserPage> {
   double _vladimirWidth = 56.1296;
   double _vladimirHeight = 40.4093;
 
-  // Флаг для отображения формы с картой
   bool _isMapVisible = false;
-
-  // Флаг для скрытия маленькой карточки при открытии карты
   bool _isCardVisible = true;
-
-  // Флаг для анимации карточки
   bool _isCardHovered = false;
 
   @override
@@ -46,69 +41,54 @@ class _UserPageState extends State<UserPage> {
     super.dispose();
   }
 
-// Метод для обработки клика по карте
-void _onMapTapped(LatLng position) {
-  setState(() {
-    // Если обе точки уже выбраны, очищаем маркеры и начинаем заново
-    if (_startPoint != null && _endPoint != null) {
-      _markers.clear();
+  // Метод для обработки клика по карте
+  void _onMapTapped(LatLng position) {
+    setState(() {
+      // Если обе точки уже выбраны, очищаем маркеры и начинаем заново
+      if (_startPoint != null && _endPoint != null) {
+        _markers.clear();
+        _startPoint = null;
+        _endPoint = null;
+      }
+
+      // Если начальная точка еще не выбрана
+      if (_startPoint == null) {
+        _startPoint = position;
+        _markers.add(Marker(
+          markerId: MarkerId('start'),
+          position: _startPoint!,
+          infoWindow: InfoWindow(title: 'Начальная точка'),
+          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen), // Зеленый маркер
+        ));
+      }
+      // Если конечная точка еще не выбрана
+      else if (_endPoint == null) {
+        _endPoint = position;
+        _markers.add(Marker(
+          markerId: MarkerId('end'),
+          position: _endPoint!,
+          infoWindow: InfoWindow(title: 'Конечная точка'),
+          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed), // Красный маркер
+        ));
+      }
+    });
+  }
+
+  // Метод для закрытия карты
+  void _closeMap() {
+    setState(() {
+      _isMapVisible = false;
+      _isCardVisible = true;
+      _markers.clear(); // Очистка маркеров при закрытии карты
       _startPoint = null;
       _endPoint = null;
-    }
-
-    // Если начальная точка еще не выбрана
-    if (_startPoint == null) {
-      _startPoint = position;
-      _markers.add(Marker(
-        markerId: MarkerId('start'),
-        position: _startPoint!,
-        infoWindow: InfoWindow(title: 'Начальная точка'),
-        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen), // Зеленый маркер
-      ));
-    }
-    // Если конечная точка еще не выбрана
-    else if (_endPoint == null) {
-      _endPoint = position;
-      _markers.add(Marker(
-        markerId: MarkerId('end'),
-        position: _endPoint!,
-        infoWindow: InfoWindow(title: 'Конечная точка'),
-        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed), // Красный маркер
-      ));
-    }
-  });
-}
-
-// Метод для обработки долгого нажатия на маркер
-void _onMarkerTapped(MarkerId markerId) {
-  setState(() {
-    // Удаление маркера по id
-    _markers.removeWhere((marker) => marker.markerId == markerId);
-
-    if (markerId.value == 'start') {
-      _startPoint = null; // Сброс начальной точки
-    } else if (markerId.value == 'end') {
-      _endPoint = null; // Сброс конечной точки
-    }
-  });
-}
-
-// Метод для закрытия карты
-void _closeMap() {
-  setState(() {
-    _isMapVisible = false;
-    _isCardVisible = true; // Возвращаем маленькую карточку
-    _markers.clear(); // Очистка маркеров при закрытии карты
-    _startPoint = null;
-    _endPoint = null;
-  });
-}
+    });
+  }
 
   // Метод для создания запроса с координатами
   void _createRouteRequest() {
     if (_startPoint != null && _endPoint != null) {
       // Здесь можно отправить запрос на сервер с координатами
-      // Например, использовать _startPoint и _endPoint для формирования запроса
       print('Запрос: Начало - $_startPoint, Конец - $_endPoint');
     } else {
       // Если не выбраны обе точки, выводим ошибку
@@ -144,204 +124,203 @@ void _closeMap() {
     );
   }
 
-@override
-Widget build(BuildContext context) {
-  return Scaffold(
-    body: Stack(
-      children: [
-        // Фон
-        Positioned.fill(
-          child: Image.asset(
-            'assets/background.png',
-            fit: BoxFit.cover,
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Stack(
+        children: [
+          // Фон
+          Positioned.fill(
+            child: Image.asset(
+              'assets/background.png',
+              fit: BoxFit.cover,
+            ),
           ),
-        ),
-        Positioned.fill(
-          child: Container(color: Colors.black.withOpacity(0.3)),
-        ),
+          Positioned.fill(
+            child: Container(color: Colors.black.withOpacity(0.3)),
+          ),
 
-        // Контент
-        Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              // Стартовая анимированная карточка с кнопкой
-              if (_isCardVisible)
-                MouseRegion(
-                  onEnter: (_) {
-                    setState(() {
-                      _isCardHovered = true; // Карточка увеличивается при наведении
-                    });
-                  },
-                  onExit: (_) {
-                    setState(() {
-                      _isCardHovered = false; // Карточка возвращается к нормальному состоянию
-                    });
-                  },
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 300),
-                    width: _isCardHovered ? 380 : 350, // Увеличение карточки
-                    height: _isCardHovered ? 220 : 200, // Увеличение карточки
-                    decoration: BoxDecoration(
-                      color: _isCardHovered ? Colors.blue.withOpacity(0.3) : Colors.white.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: Colors.white, width: 2),
-                    ),
-                    child: Center(
-                      child: ElevatedButton(
-                        onPressed: _toggleMapVisibility,
-                        child: const Text('Создать запрос на маршрут'),
+          // Контент
+          Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                // Стартовая анимированная карточка с кнопкой
+                if (_isCardVisible)
+                  MouseRegion(
+                    onEnter: (_) {
+                      setState(() {
+                        _isCardHovered = true; // Карточка увеличивается при наведении
+                      });
+                    },
+                    onExit: (_) {
+                      setState(() {
+                        _isCardHovered = false; // Карточка возвращается к нормальному состоянию
+                      });
+                    },
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 300),
+                      width: _isCardHovered ? 380 : 350, // Увеличение карточки
+                      height: _isCardHovered ? 220 : 200, // Увеличение карточки
+                      decoration: BoxDecoration(
+                        color: _isCardHovered ? Colors.blue.withOpacity(0.3) : Colors.white.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: Colors.white, width: 2),
+                      ),
+                      child: Center(
+                        child: ElevatedButton(
+                          onPressed: _toggleMapVisibility,
+                          child: const Text('Создать запрос на маршрут'),
+                        ),
                       ),
                     ),
                   ),
-                ),
 
-              const SizedBox(height: 20),
+                const SizedBox(height: 20),
 
-              // Если флаг _isMapVisible true, показываем большую карту с формой и кнопкой
-              if (_isMapVisible)
-                Center(
-                  child: Container(
-                    width: 600, // Увеличиваем размеры карты
-                    height: 800,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(10),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.5),
-                          blurRadius: 10,
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      children: [
-                        // Крестик для закрытия карты
-                        Align(
-                          alignment: Alignment.topRight,
-                          child: IconButton(
-                            icon: const Icon(Icons.close),
-                            onPressed: _closeMap,
+                // Если флаг _isMapVisible true, показываем большую карту с формой и кнопкой
+                if (_isMapVisible)
+                  Center(
+                    child: Container(
+                      width: 600, // Увеличиваем размеры карты
+                      height: 800,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(10),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.5),
+                            blurRadius: 10,
                           ),
-                        ),
-                        // Карта
-                        Expanded(
-                          child: GoogleMap(
-                            onMapCreated: (GoogleMapController controller) {
-                              _mapController = controller;
-                            },
-                            initialCameraPosition: CameraPosition(
-                              target: LatLng(_vladimirWidth, _vladimirHeight),
-                              zoom: 10,
+                        ],
+                      ),
+                      child: Column(
+                        children: [
+                          // Крестик для закрытия карты
+                          Align(
+                            alignment: Alignment.topRight,
+                            child: IconButton(
+                              icon: const Icon(Icons.close),
+                              onPressed: _closeMap,
                             ),
-                            markers: _markers,
-                            onTap: _onMapTapped,
-                            trafficEnabled: true,
-                            myLocationEnabled: true,
                           ),
-                        ),
-                        // Форма для начальной и конечной точки
-                        Padding(
-                          padding: const EdgeInsets.all(8.0),
-                          child: Column(
-                            children: [
-                              // Начальная точка
-                              Row(
-                                children: [
-                                  Text(
-                                    'Начальная точка: ',
-                                    style: TextStyle(color: Colors.black),
-                                  ),
-                                  Text(
-                                    _startPoint != null
-                                        ? '${_startPoint!.latitude}, ${_startPoint!.longitude}'
-                                        : 'Пусто',
-                                    style: TextStyle(color: Colors.black),
-                                  ),
-                                  if (_startPoint != null)
-                                    Icon(
-                                      Icons.circle,
-                                      color: Colors.green, // Зеленый цвет для начальной точки
-                                      size: 15,
-                                    ),
-                                ],
+                          // Карта
+                          Expanded(
+                            child: GoogleMap(
+                              onMapCreated: (GoogleMapController controller) {
+                                _mapController = controller;
+                              },
+                              initialCameraPosition: CameraPosition(
+                                target: LatLng(_vladimirWidth, _vladimirHeight),
+                                zoom: 10,
                               ),
-                              const SizedBox(height: 10),
-                              // Конечная точка
-                              Row(
-                                children: [
-                                  Text(
-                                    'Конечная точка: ',
-                                    style: TextStyle(color: Colors.black),
-                                  ),
-                                  Text(
-                                    _endPoint != null
-                                        ? '${_endPoint!.latitude}, ${_endPoint!.longitude}'
-                                        : 'Пусто',
-                                    style: TextStyle(color: Colors.black),
-                                  ),
-                                  if (_endPoint != null)
-                                    Icon(
-                                      Icons.circle,
-                                      color: Colors.red, // Красный цвет для конечной точки
-                                      size: 15,
+                              markers: _markers,
+                              onTap: _onMapTapped,
+                              trafficEnabled: true,
+                              myLocationEnabled: true,
+                            ),
+                          ),
+                          // Форма для начальной и конечной точки
+                          Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: Column(
+                              children: [
+                                // Начальная точка
+                                Row(
+                                  children: [
+                                    Text(
+                                      'Начальная точка: ',
+                                      style: TextStyle(color: Colors.black),
                                     ),
-                                ],
-                              ),
-                            ],
+                                    Text(
+                                      _startPoint != null
+                                          ? '${_startPoint!.latitude}, ${_startPoint!.longitude}'
+                                          : 'Пусто',
+                                      style: TextStyle(color: Colors.black),
+                                    ),
+                                    if (_startPoint != null)
+                                      Icon(
+                                        Icons.circle,
+                                        color: Colors.green, // Зеленый цвет для начальной точки
+                                        size: 15,
+                                      ),
+                                  ],
+                                ),
+                                const SizedBox(height: 10),
+                                // Конечная точка
+                                Row(
+                                  children: [
+                                    Text(
+                                      'Конечная точка: ',
+                                      style: TextStyle(color: Colors.black),
+                                    ),
+                                    Text(
+                                      _endPoint != null
+                                          ? '${_endPoint!.latitude}, ${_endPoint!.longitude}'
+                                          : 'Пусто',
+                                      style: TextStyle(color: Colors.black),
+                                    ),
+                                    if (_endPoint != null)
+                                      Icon(
+                                        Icons.circle,
+                                        color: Colors.red, // Красный цвет для конечной точки
+                                        size: 15,
+                                      ),
+                                  ],
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                        // Кнопка для создания маршрута
-                        Padding(
-                          padding: const EdgeInsets.all(8.0),
-                          child: ElevatedButton(
-                            onPressed: _startPoint != null && _endPoint != null ? _createRouteRequest : null,
-                            child: const Text('Создать запрос на маршрут'),
+                          // Кнопка для создания маршрута
+                          Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: ElevatedButton(
+                              onPressed: _startPoint != null && _endPoint != null ? _createRouteRequest : null,
+                              child: const Text('Создать запрос на маршрут'),
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
+              ],
+            ),
+          ),
+
+          // Профиль в правом верхнем углу
+          Positioned(
+            top: 50,
+            right: 20,
+            child: Column(
+              children: [
+                CircleAvatar(
+                  backgroundImage: widget.photoUrl.isNotEmpty
+                      ? NetworkImage(widget.photoUrl)
+                      : const AssetImage('assets/default_avatar.png') as ImageProvider,
+                  radius: 30,
                 ),
-            ],
+                const SizedBox(height: 10),
+                Text(
+                  widget.displayName,
+                  style: const TextStyle(color: Colors.white),
+                ),
+                ElevatedButton(
+                  onPressed: () => _navigateToLK(context),
+                  child: const Text("Войти в ЛК"),
+                ),
+                SizedBox(height: 10.0),
+                ElevatedButton(
+                  onPressed: () => _signOut(context),
+                  child: const Text("Выйти"),
+                ),
+              ],
+            ),
           ),
-        ),
 
-        // Профиль в правом верхнем углу
-        Positioned(
-          top: 50,
-          right: 20,
-          child: Column(
-            children: [
-              CircleAvatar(
-                backgroundImage: widget.photoUrl.isNotEmpty
-                    ? NetworkImage(widget.photoUrl)
-                    : const AssetImage('assets/default_avatar.png') as ImageProvider,
-                radius: 30,
-              ),
-              const SizedBox(height: 10),
-              Text(
-                widget.displayName,
-                style: const TextStyle(color: Colors.white),
-              ),
-              ElevatedButton(
-                onPressed: () => _navigateToLK(context),
-                child: const Text("Войти в ЛК"),
-              ),
-              SizedBox(height: 10.0),
-              ElevatedButton(
-                onPressed: () => _signOut(context),
-                child: const Text("Выйти"),
-              ),
-            ],
-          ),
-        ),
-
-        const Header(),
-        const Footer(),
-      ],
-    ),
-  );
-}
-
+          const Header(),
+          const Footer(),
+        ],
+      ),
+    );
+  }
 }
