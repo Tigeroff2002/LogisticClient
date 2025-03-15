@@ -24,6 +24,8 @@ dependencies:
   js: ^0.6.3
   flutter_svg: ^1.0.0
   cached_network_image: ^3.2.1
+  google_maps_flutter: ^2.1.1
+  google_maps_flutter_web: ^0.3.0
 
 flutter_icons:
   android: truef

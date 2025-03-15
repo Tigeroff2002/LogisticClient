@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:logist_client/widgets/lk_page.dart'; // Импорт страницы ЛК
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:logist_client/widgets/auth_screen.dart';
 import 'header.dart';
 import 'footer.dart';
-import 'lk_page.dart';
 
 class UserPage extends StatefulWidget {
   final String displayName;
@@ -19,12 +20,119 @@ class UserPage extends StatefulWidget {
   }) : super(key: key);
 
   @override
-  State<UserPage> createState() => _UserPageState();
+  _UserPageState createState() => _UserPageState();
 }
 
 class _UserPageState extends State<UserPage> {
-  bool isHovered = false;
+  late GoogleMapController _mapController;
+  Set<Marker> _markers = Set();
+  LatLng? _startPoint;
+  LatLng? _endPoint;
 
+  double _vladimirWidth = 56.1296;
+  double _vladimirHeight = 40.4093;
+
+  // Флаг для отображения формы с картой
+  bool _isMapVisible = false;
+
+  // Флаг для скрытия маленькой карточки при открытии карты
+  bool _isCardVisible = true;
+
+  // Флаг для анимации карточки
+  bool _isCardHovered = false;
+
+  @override
+  void dispose() {
+    super.dispose();
+  }
+
+// Метод для обработки клика по карте
+void _onMapTapped(LatLng position) {
+  setState(() {
+    // Если обе точки уже выбраны, очищаем маркеры и начинаем заново
+    if (_startPoint != null && _endPoint != null) {
+      _markers.clear();
+      _startPoint = null;
+      _endPoint = null;
+    }
+
+    // Если начальная точка еще не выбрана
+    if (_startPoint == null) {
+      _startPoint = position;
+      _markers.add(Marker(
+        markerId: MarkerId('start'),
+        position: _startPoint!,
+        infoWindow: InfoWindow(title: 'Начальная точка'),
+        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen), // Зеленый маркер
+      ));
+    }
+    // Если конечная точка еще не выбрана
+    else if (_endPoint == null) {
+      _endPoint = position;
+      _markers.add(Marker(
+        markerId: MarkerId('end'),
+        position: _endPoint!,
+        infoWindow: InfoWindow(title: 'Конечная точка'),
+        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed), // Красный маркер
+      ));
+    }
+  });
+}
+
+// Метод для обработки долгого нажатия на маркер
+void _onMarkerTapped(MarkerId markerId) {
+  setState(() {
+    // Удаление маркера по id
+    _markers.removeWhere((marker) => marker.markerId == markerId);
+
+    if (markerId.value == 'start') {
+      _startPoint = null; // Сброс начальной точки
+    } else if (markerId.value == 'end') {
+      _endPoint = null; // Сброс конечной точки
+    }
+  });
+}
+
+// Метод для закрытия карты
+void _closeMap() {
+  setState(() {
+    _isMapVisible = false;
+    _isCardVisible = true; // Возвращаем маленькую карточку
+    _markers.clear(); // Очистка маркеров при закрытии карты
+    _startPoint = null;
+    _endPoint = null;
+  });
+}
+
+  // Метод для создания запроса с координатами
+  void _createRouteRequest() {
+    if (_startPoint != null && _endPoint != null) {
+      // Здесь можно отправить запрос на сервер с координатами
+      // Например, использовать _startPoint и _endPoint для формирования запроса
+      print('Запрос: Начало - $_startPoint, Конец - $_endPoint');
+    } else {
+      // Если не выбраны обе точки, выводим ошибку
+      print('Ошибка: Нужно выбрать обе точки!');
+    }
+  }
+
+  // Метод для отображения карты
+  void _toggleMapVisibility() {
+    setState(() {
+      _isMapVisible = !_isMapVisible;
+      _isCardVisible = !_isMapVisible; // Скрываем маленькую карточку
+    });
+  }
+
+  // Переход на страницу ЛК
+  void _navigateToLK(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const LkPage()),
+    );
+  }
+
+  // Метод для выхода
   Future<void> _signOut(BuildContext context) async {
     await GoogleSignIn().signOut();
     final prefs = await SharedPreferences.getInstance();
@@ -36,148 +144,204 @@ class _UserPageState extends State<UserPage> {
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: Stack(
-        children: [
-          // Фон
-          Positioned.fill(
-            child: Image.asset(
-              'assets/background.png',
-              fit: BoxFit.cover,
-            ),
+@override
+Widget build(BuildContext context) {
+  return Scaffold(
+    body: Stack(
+      children: [
+        // Фон
+        Positioned.fill(
+          child: Image.asset(
+            'assets/background.png',
+            fit: BoxFit.cover,
           ),
-          Positioned.fill(
-            child: Container(color: Colors.black.withOpacity(0.3)),
-          ),
+        ),
+        Positioned.fill(
+          child: Container(color: Colors.black.withOpacity(0.3)),
+        ),
 
-          // Контент
-          Column(
+        // Контент
+        Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Header(),
-
-              // Профиль пользователя в правом верхнем углу
-              Align(
-                alignment: Alignment.topRight,
-                child: Container(
-                  margin: const EdgeInsets.all(16),
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.9),
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.2),
-                        blurRadius: 10,
-                        offset: const Offset(0, 5),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      CircleAvatar(
-                        backgroundImage: widget.photoUrl.isNotEmpty
-                            ? NetworkImage(widget.photoUrl)
-                            : const AssetImage('assets/default_avatar.png') as ImageProvider,
-                        radius: 25,
-                      ),
-                      const SizedBox(width: 12),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            widget.displayName,
-                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                          ),
-                          Text(
-                            widget.email,
-                            style: const TextStyle(fontSize: 14, color: Colors.grey),
-                          ),
-                          Row(
-                            children: [
-                              TextButton(
-                                onPressed: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(builder: (context) => const LkPage()),
-                                  );
-                                },
-                                child: const Text("Перейти в ЛК"),
-                              ),
-                              TextButton(
-                                onPressed: () => _signOut(context),
-                                child: const Text("Выйти"),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-
-              // Центральная карточка
-              Expanded(
-                child: Center(
-                  child: MouseRegion(
-                    onEnter: (_) => setState(() => isHovered = true),
-                    onExit: (_) => setState(() => isHovered = false),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 300),
-                      curve: Curves.easeInOut,
-                      width: isHovered ? 380 : 350,
-                      height: isHovered ? 220 : 200,
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: isHovered ? Colors.white.withOpacity(0.9) : Colors.transparent,
-                        borderRadius: BorderRadius.circular(15),
-                        border: Border.all(
-                          color: Colors.white.withOpacity(0.8),
-                          width: 2,
-                        ),
-                        boxShadow: isHovered
-                            ? [
-                                BoxShadow(
-                                  color: Colors.blue.withOpacity(0.5),
-                                  blurRadius: 20,
-                                  spreadRadius: 2,
-                                ),
-                              ]
-                            : [],
-                      ),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            "Создать новый маршрут",
-                            style: TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.bold,
-                              color: isHovered ? Colors.black : Colors.white,
-                            ),
-                          ),
-                          const SizedBox(height: 20),
-                          ElevatedButton(
-                            onPressed: () {
-                              // Действие при нажатии
-                            },
-                            child: const Text("Создать маршрут"),
-                          ),
-                        ],
+              // Стартовая анимированная карточка с кнопкой
+              if (_isCardVisible)
+                MouseRegion(
+                  onEnter: (_) {
+                    setState(() {
+                      _isCardHovered = true; // Карточка увеличивается при наведении
+                    });
+                  },
+                  onExit: (_) {
+                    setState(() {
+                      _isCardHovered = false; // Карточка возвращается к нормальному состоянию
+                    });
+                  },
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 300),
+                    width: _isCardHovered ? 380 : 350, // Увеличение карточки
+                    height: _isCardHovered ? 220 : 200, // Увеличение карточки
+                    decoration: BoxDecoration(
+                      color: _isCardHovered ? Colors.blue.withOpacity(0.3) : Colors.white.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.white, width: 2),
+                    ),
+                    child: Center(
+                      child: ElevatedButton(
+                        onPressed: _toggleMapVisibility,
+                        child: const Text('Создать запрос на маршрут'),
                       ),
                     ),
                   ),
                 ),
+
+              const SizedBox(height: 20),
+
+              // Если флаг _isMapVisible true, показываем большую карту с формой и кнопкой
+              if (_isMapVisible)
+                Center(
+                  child: Container(
+                    width: 600, // Увеличиваем размеры карты
+                    height: 800,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(10),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.5),
+                          blurRadius: 10,
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      children: [
+                        // Крестик для закрытия карты
+                        Align(
+                          alignment: Alignment.topRight,
+                          child: IconButton(
+                            icon: const Icon(Icons.close),
+                            onPressed: _closeMap,
+                          ),
+                        ),
+                        // Карта
+                        Expanded(
+                          child: GoogleMap(
+                            onMapCreated: (GoogleMapController controller) {
+                              _mapController = controller;
+                            },
+                            initialCameraPosition: CameraPosition(
+                              target: LatLng(_vladimirWidth, _vladimirHeight),
+                              zoom: 10,
+                            ),
+                            markers: _markers,
+                            onTap: _onMapTapped,
+                            trafficEnabled: true,
+                            myLocationEnabled: true,
+                          ),
+                        ),
+                        // Форма для начальной и конечной точки
+                        Padding(
+                          padding: const EdgeInsets.all(8.0),
+                          child: Column(
+                            children: [
+                              // Начальная точка
+                              Row(
+                                children: [
+                                  Text(
+                                    'Начальная точка: ',
+                                    style: TextStyle(color: Colors.black),
+                                  ),
+                                  Text(
+                                    _startPoint != null
+                                        ? '${_startPoint!.latitude}, ${_startPoint!.longitude}'
+                                        : 'Пусто',
+                                    style: TextStyle(color: Colors.black),
+                                  ),
+                                  if (_startPoint != null)
+                                    Icon(
+                                      Icons.circle,
+                                      color: Colors.green, // Зеленый цвет для начальной точки
+                                      size: 15,
+                                    ),
+                                ],
+                              ),
+                              const SizedBox(height: 10),
+                              // Конечная точка
+                              Row(
+                                children: [
+                                  Text(
+                                    'Конечная точка: ',
+                                    style: TextStyle(color: Colors.black),
+                                  ),
+                                  Text(
+                                    _endPoint != null
+                                        ? '${_endPoint!.latitude}, ${_endPoint!.longitude}'
+                                        : 'Пусто',
+                                    style: TextStyle(color: Colors.black),
+                                  ),
+                                  if (_endPoint != null)
+                                    Icon(
+                                      Icons.circle,
+                                      color: Colors.red, // Красный цвет для конечной точки
+                                      size: 15,
+                                    ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                        // Кнопка для создания маршрута
+                        Padding(
+                          padding: const EdgeInsets.all(8.0),
+                          child: ElevatedButton(
+                            onPressed: _startPoint != null && _endPoint != null ? _createRouteRequest : null,
+                            child: const Text('Создать запрос на маршрут'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+
+        // Профиль в правом верхнем углу
+        Positioned(
+          top: 50,
+          right: 20,
+          child: Column(
+            children: [
+              CircleAvatar(
+                backgroundImage: widget.photoUrl.isNotEmpty
+                    ? NetworkImage(widget.photoUrl)
+                    : const AssetImage('assets/default_avatar.png') as ImageProvider,
+                radius: 30,
+              ),
+              const SizedBox(height: 10),
+              Text(
+                widget.displayName,
+                style: const TextStyle(color: Colors.white),
+              ),
+              ElevatedButton(
+                onPressed: () => _navigateToLK(context),
+                child: const Text("Войти в ЛК"),
+              ),
+              SizedBox(height: 10.0),
+              ElevatedButton(
+                onPressed: () => _signOut(context),
+                child: const Text("Выйти"),
               ),
             ],
           ),
+        ),
 
-          const Footer(),
-        ],
-      ),
-    );
-  }
+        const Header(),
+        const Footer(),
+      ],
+    ),
+  );
+}
+
 }
