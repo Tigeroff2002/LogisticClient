@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:http/http.dart' as http;
 import 'user_page.dart';
 import 'package:google_sign_in_platform_interface/google_sign_in_platform_interface.dart';
 import 'package:google_sign_in_web/google_sign_in_web.dart' as web;
@@ -24,24 +25,10 @@ class SignIn extends StatefulWidget {
   State<SignIn> createState() => _SignInState();
 }
 
-class CustomUser {
-  final String id;
-  final String displayName;
-  final String email;
-  final String photoUrl;
-
-  CustomUser({
-    required this.id,
-    required this.displayName,
-    required this.email,
-    required this.photoUrl,
-  });
-}
-
 class _SignInState extends State<SignIn> {
   bool loading = false;
-  CustomUser? user;
-  bool isTokenAvailable = false;
+  bool isHovered = false;
+  double scale = 1.0;
 
   GoogleSignIn googleSignIn = GoogleSignIn(
     clientId: "118733131205-uj4ulrnj7b9qjms7n8ba971nj2qn5hab.apps.googleusercontent.com",
@@ -51,28 +38,17 @@ class _SignInState extends State<SignIn> {
   void initState() {
     super.initState();
     _checkCachedToken();
-    
+
     googleSignIn.onCurrentUserChanged.listen((GoogleSignInAccount? account) async {
       if (account != null) {
-        await _saveUserDataToCache(account);
-        if (mounted) {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder: (context) => UserPage(
-                displayName: account.displayName ?? 'Неизвестный пользователь',
-                email: account.email,
-                photoUrl: account.photoUrl ?? '',
-              ),
-            ),
-          );
-        }
+        await _handleAuth(account);
       }
     });
 
     googleSignIn.signInSilently();
   }
 
+  /// Проверяет, есть ли сохраненный токен
   Future<void> _checkCachedToken() async {
     final prefs = await SharedPreferences.getInstance();
     final cachedToken = prefs.getString('jwt_token');
@@ -81,29 +57,76 @@ class _SignInState extends State<SignIn> {
     final cachedPhotoUrl = prefs.getString('photoUrl');
 
     if (cachedToken != null && cachedToken.isNotEmpty) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (context) => UserPage(
-            displayName: cachedDisplayName ?? 'Неизвестный пользователь',
-            email: cachedEmail ?? 'Неизвестная почта',
-            photoUrl: cachedPhotoUrl ?? '',
-          ),
-        ),
-      );
+      final success = await _sendJWTToBackend(cachedToken);
+      if (success) {
+        _navigateToUserPage(cachedDisplayName, cachedEmail, cachedPhotoUrl);
+      }
     }
   }
 
-  Future<void> _saveUserDataToCache(GoogleSignInAccount account) async {
-    final prefs = await SharedPreferences.getInstance();
-    var jwtToken = (await account.authentication).idToken ?? '';
+  /// Обрабатывает аутентификацию после получения аккаунта
+  Future<void> _handleAuth(GoogleSignInAccount account) async {
+    setState(() => loading = true);
+    
+    final jwtToken = (await account.authentication).idToken ?? '';
+    final success = await _sendJWTToBackend(jwtToken);
 
+    if (success) {
+      await _saveUserDataToCache(account, jwtToken);
+      _navigateToUserPage(account.displayName, account.email, account.photoUrl);
+    } else {
+      _showErrorAlert('Ошибка аутентификации');
+    }
+    
+    setState(() => loading = false);
+  }
+
+  /// Отправляет JWT на бэкенд и проверяет статус ответа
+  Future<bool> _sendJWTToBackend(String jwtToken) async {
+    try {
+      final response = await http.get(
+        Uri.parse('https://localhost:7247/Users/me'),
+        headers: {'Authorization': 'Bearer $jwtToken'},
+      );
+
+      if (response.statusCode == 200) {
+        return true;
+      } else {
+        debugPrint('Ошибка сервера: ${response.statusCode}');
+        return false;
+      }
+    } catch (e) {
+      debugPrint('Ошибка сети: $e');
+      return false;
+    }
+  }
+
+  /// Сохраняет данные пользователя в SharedPreferences
+  Future<void> _saveUserDataToCache(GoogleSignInAccount account, String jwtToken) async {
+    final prefs = await SharedPreferences.getInstance();
     await prefs.setString('jwt_token', jwtToken);
     await prefs.setString('displayName', account.displayName ?? 'Неизвестный пользователь');
     await prefs.setString('email', account.email);
     await prefs.setString('photoUrl', account.photoUrl ?? '');
   }
 
+  /// Переход на `UserPage`
+  void _navigateToUserPage(String? displayName, String? email, String? photoUrl) {
+    if (mounted) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => UserPage(
+            displayName: displayName ?? 'Неизвестный пользователь',
+            email: email ?? 'Неизвестная почта',
+            photoUrl: photoUrl ?? '',
+          ),
+        ),
+      );
+    }
+  }
+
+  /// Показывает ошибку и перезагружает страницу
   void _showErrorAlert(String message) {
     showDialog(
       context: context,
@@ -113,7 +136,13 @@ class _SignInState extends State<SignIn> {
           content: Text(message),
           actions: <Widget>[
             TextButton(
-              onPressed: () => Navigator.of(context).pop(),
+              onPressed: () {
+                Navigator.of(context).pop();
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (context) => const SignIn()),
+                );
+              },
               child: const Text('ОК'),
             ),
           ],
@@ -122,85 +151,72 @@ class _SignInState extends State<SignIn> {
     );
   }
 
-  Widget googleStyledButton({required String text, required VoidCallback onPressed}) {
-    return InkWell(
-      onTap: onPressed,
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        height: 55,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: Colors.blue.shade600),
-          color: Colors.white,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.grey.withOpacity(0.2),
-              blurRadius: 6,
-              offset: const Offset(0, 3),
-            ),
-          ],
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            SvgPicture.network(
-              'https://upload.wikimedia.org/wikipedia/commons/2/2f/Google_2015_logo.svg',
-              height: 24,
-            ),
-            const SizedBox(width: 10),
-            Text(
-              text,
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: Colors.black87),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Center(
-        child: SizedBox(
-          width: 600,
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                if (loading) const LinearProgressIndicator(),
-                if (user == null) ...[
-                  Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
-                          blurRadius: 8,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      children: [
-                        const Text(
-                          'Войти с помощью Google',
-                          style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-                        ),
-                        const SizedBox(height: 20),
-                        (GoogleSignInPlatform.instance as web.GoogleSignInPlugin)
-                            .renderButton(configuration: web.GSIButtonConfiguration()),
-                      ],
-                    ),
-                  ),
-                ],
-              ],
+      body: Stack(
+        children: [
+          // Фон
+          Positioned.fill(
+            child: Image.asset(
+              'assets/background.png',
+              fit: BoxFit.cover,
             ),
           ),
-        ),
+          Positioned.fill(
+            child: Container(color: Colors.black.withOpacity(0.3)),
+          ),
+
+          // Контент
+          Center(
+            child: MouseRegion(
+              onEnter: (_) => setState(() {
+                isHovered = true;
+                scale = 1.1;
+              }),
+              onExit: (_) => setState(() {
+                isHovered = false;
+                scale = 1.0;
+              }),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 300),
+                transform: Matrix4.identity()..scale(scale),
+                padding: const EdgeInsets.all(25),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.9),
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: isHovered ? Colors.blue.shade300 : Colors.black.withOpacity(0.2),
+                      blurRadius: isHovered ? 20 : 10,
+                      offset: const Offset(0, 5),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      'Добро пожаловать!',
+                      style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Colors.black87),
+                    ),
+                    const SizedBox(height: 15),
+                    const Text(
+                      'Войдите с помощью Google',
+                      style: TextStyle(fontSize: 16, color: Colors.black54),
+                    ),
+                    const SizedBox(height: 20),
+                    if (!loading)
+                      (GoogleSignInPlatform.instance as web.GoogleSignInPlugin)
+                          .renderButton(configuration: web.GSIButtonConfiguration())
+                    else
+                      const CircularProgressIndicator(),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
