@@ -1,11 +1,14 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:google_sign_in/google_sign_in.dart';
-import 'package:logist_client/widgets/lk_page.dart'; // Импорт страницы ЛК
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:logist_client/widgets/auth_screen.dart';
+import 'package:http/http.dart' as http;
+import 'package:uuid/uuid.dart';
 import 'header.dart';
 import 'footer.dart';
+import 'package:logist_client/widgets/lk_page.dart'; // Импорт страницы ЛК
+import 'package:logist_client/widgets/auth_screen.dart';
 
 class UserPage extends StatefulWidget {
   final String displayName;
@@ -35,11 +38,6 @@ class _UserPageState extends State<UserPage> {
   bool _isMapVisible = false;
   bool _isCardVisible = true;
   bool _isCardHovered = false;
-
-  @override
-  void dispose() {
-    super.dispose();
-  }
 
   // Метод для обработки клика по карте
   void _onMapTapped(LatLng position) {
@@ -85,23 +83,120 @@ class _UserPageState extends State<UserPage> {
     });
   }
 
-  // Метод для создания запроса с координатами
-  void _createRouteRequest() {
+  // Метод для создания запроса на маршрут с координатами
+  Future<void> _createRouteRequest() async {
     if (_startPoint != null && _endPoint != null) {
-      // Здесь можно отправить запрос на сервер с координатами
-      print('Запрос: Начало - $_startPoint, Конец - $_endPoint');
+      // Генерация GUID
+      String guid = Uuid().v4();
+
+      // Получаем токен из SharedPreferences
+      final prefs = await SharedPreferences.getInstance();
+      String? jwtToken = prefs.getString('jwt_token');
+
+      if (jwtToken == null) {
+        debugPrint("Ошибка: Не найден токен.");
+        return;
+      }
+
+      // Формирование тела запроса
+      final Map<String, dynamic> requestBody = {
+        "guid": guid,
+        "coords_range": {
+          "start_coord": {
+            "width": _startPoint!.latitude,
+            "heigth": _startPoint!.longitude,
+          },
+          "end_coord": {
+            "width": _endPoint!.latitude,
+            "heigth": _endPoint!.longitude,
+          },
+        },
+      };
+
+      try {
+        final response = await http.post(
+          Uri.parse('https://localhost:7247/Requests/create'),
+          headers: {
+            'Authorization': 'Bearer $jwtToken',
+            'Content-Type': 'application/json',
+          },
+          body: json.encode(requestBody),
+        );
+
+        if (response.statusCode == 200) {
+          final responseJson = json.decode(response.body);
+          int requestId = responseJson['request_id'];
+          debugPrint('Запрос успешно создан. Request ID: $requestId');
+
+          // Теперь отправляем GET запрос с полученным requestId
+          await _getRequestStatus(requestId);
+        } else {
+          debugPrint('Ошибка сервера: ${response.statusCode}');
+        }
+      } catch (e) {
+        debugPrint('Ошибка сети: $e');
+      }
     } else {
-      // Если не выбраны обе точки, выводим ошибку
-      print('Ошибка: Нужно выбрать обе точки!');
+      debugPrint('Ошибка: Нужно выбрать обе точки!');
     }
   }
 
-  // Метод для отображения карты
   void _toggleMapVisibility() {
     setState(() {
       _isMapVisible = !_isMapVisible;
       _isCardVisible = !_isMapVisible; // Скрываем маленькую карточку
     });
+  }
+
+  Future<void> _getRequestStatus(int requestId) async {
+    // Получаем токен из SharedPreferences
+    final prefs = await SharedPreferences.getInstance();
+    String? jwtToken = prefs.getString('jwtToken');
+
+    if (jwtToken == null) {
+      debugPrint("Ошибка: Не найден токен.");
+      return;
+    }
+
+    try {
+      final response = await http.get(
+        Uri.parse('https://localhost:7247/Requests/requestId=$requestId?isActive=false'),
+        headers: {'Authorization': 'Bearer $jwtToken'},
+      );
+
+      if (response.statusCode == 200) {
+        debugPrint('Запрос обработан успешно.');
+      } else if (response.statusCode == 400) {
+        final responseJson = json.decode(response.body);
+        String failureMessage = responseJson['failure_message'];
+        debugPrint('Ошибка запроса: $failureMessage');
+        _showFailureMessage(failureMessage);
+      } else {
+        debugPrint('Ошибка сервера: ${response.statusCode}');
+      }
+    } catch (e) {
+      debugPrint('Ошибка сети: $e');
+    }
+  }
+
+  void _showFailureMessage(String message) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('Ошибка'),
+          content: Text(message),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: Text('Закрыть'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   // Переход на страницу ЛК
@@ -276,6 +371,9 @@ class _UserPageState extends State<UserPage> {
                             padding: const EdgeInsets.all(8.0),
                             child: ElevatedButton(
                               onPressed: _startPoint != null && _endPoint != null ? _createRouteRequest : null,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: _startPoint != null && _endPoint != null ? Colors.red : Colors.grey,
+                              ),
                               child: const Text('Создать запрос на маршрут'),
                             ),
                           ),
