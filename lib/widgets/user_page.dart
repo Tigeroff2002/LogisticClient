@@ -39,6 +39,8 @@ class _UserPageState extends State<UserPage> {
   bool _isCardVisible = true;
   bool _isCardHovered = false;
 
+  Set<Polyline> _polylines = {};
+
   // Метод для обработки клика по карте
   void _onMapTapped(LatLng position) {
     setState(() {
@@ -129,7 +131,7 @@ class _UserPageState extends State<UserPage> {
           debugPrint('Запрос успешно создан. Request ID: $requestId');
 
           // Теперь отправляем GET запрос с полученным requestId
-          await _getRequestStatus(requestId);
+          await _getRequestData(requestId);
         } else {
           debugPrint('Ошибка сервера: ${response.statusCode}');
         }
@@ -148,7 +150,7 @@ class _UserPageState extends State<UserPage> {
     });
   }
 
-  Future<void> _getRequestStatus(int requestId) async {
+  Future<void> _getRequestData(int requestId) async {
     // Получаем токен из SharedPreferences
     final prefs = await SharedPreferences.getInstance();
     String? jwtToken = prefs.getString('jwt_token');
@@ -169,6 +171,41 @@ class _UserPageState extends State<UserPage> {
 
       if (response.statusCode == 200) {
         debugPrint('Запрос обработан успешно.');
+
+        final responseJson = json.decode(response.body);
+        
+        debugPrint(response.body);
+
+        List<dynamic> segments = responseJson['initial_segments'];
+        Set<Polyline> newPolylines = {};
+
+        for (var segment in segments) {
+          LatLng start = LatLng(
+            segment['coords_range']['start_coord']['width'],
+            segment['coords_range']['start_coord']['heigth'],
+          );
+
+          LatLng end = LatLng(
+            segment['coords_range']['end_coord']['width'],
+            segment['coords_range']['end_coord']['heigth'],
+          );
+
+          newPolylines.add(
+            Polyline(
+              polylineId: PolylineId(segment['id'].toString()),
+              points: [start, end],
+              color: Colors.blue,
+              width: 5,
+            ),
+          );
+        }   
+
+        debugPrint("Кол-во сегментов: ${newPolylines.length}");
+
+        setState(() {
+          _polylines = newPolylines;
+        });     
+
       } else if (response.statusCode == 400) {
         final responseJson = json.decode(response.body);
         String failureMessage = responseJson['failure_message'];
@@ -314,8 +351,9 @@ class _UserPageState extends State<UserPage> {
                               ),
                               markers: _markers,
                               onTap: _onMapTapped,
-                              trafficEnabled: true,
+                              //trafficEnabled: true,
                               myLocationEnabled: true,
+                              polylines: _polylines
                             ),
                           ),
                           // Форма для начальной и конечной точки
