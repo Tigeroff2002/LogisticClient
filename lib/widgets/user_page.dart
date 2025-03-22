@@ -151,7 +151,7 @@ class _UserPageState extends State<UserPage> {
   Future<void> _getRequestStatus(int requestId) async {
     // Получаем токен из SharedPreferences
     final prefs = await SharedPreferences.getInstance();
-    String? jwtToken = prefs.getString('jwtToken');
+    String? jwtToken = prefs.getString('jwt_token');
 
     if (jwtToken == null) {
       debugPrint("Ошибка: Не найден токен.");
@@ -160,8 +160,11 @@ class _UserPageState extends State<UserPage> {
 
     try {
       final response = await http.get(
-        Uri.parse('https://localhost:7247/Requests/requestId=$requestId?isActive=false'),
-        headers: {'Authorization': 'Bearer $jwtToken'},
+        Uri.parse('https://localhost:7247/Requests?requestId=${requestId}&isActive=false'),
+          headers: {
+            'Authorization': 'Bearer $jwtToken',
+            'Content-Type': 'application/json',
+          }
       );
 
       if (response.statusCode == 200) {
