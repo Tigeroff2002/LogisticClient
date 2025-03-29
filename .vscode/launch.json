@@ -1,0 +1,23 @@
+{
+    "version": "0.2.0",
+    "configurations":
+    [
+        {
+            "name": "logist_client",
+            "request": "launch",
+            "type": "dart"
+        },
+        {
+            "name": "logist_client (profile mode)",
+            "request": "launch",
+            "type": "dart",
+            "flutterMode": "profile"
+        },
+        {
+            "name": "logist_client (release mode)",
+            "request": "launch",
+            "type": "dart",
+            "flutterMode": "release"
+        }        
+    ]
+}

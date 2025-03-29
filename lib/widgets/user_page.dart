@@ -41,8 +41,11 @@ class _UserPageState extends State<UserPage> {
 
   Set<Polyline> _polylines = {};
 
-  // Метод для обработки клика по карте
-  void _onMapTapped(LatLng position) {
+  bool _isRequestCreated = false;  // Флаг для проверки, был ли создан запрос
+  bool _isRequestRecreated = false;  // Флаг для проверки, был ли пересоздан запрос
+  int? _requestId;  // ID запроса
+
+    void _onMapTapped(LatLng position) {
     setState(() {
       // Если обе точки уже выбраны, очищаем маркеры и начинаем заново
       if (_startPoint != null && _endPoint != null) {
@@ -74,8 +77,7 @@ class _UserPageState extends State<UserPage> {
     });
   }
 
-  // Метод для закрытия карты
-  void _closeMap() {
+    void _closeMap() {
     setState(() {
       _isMapVisible = false;
       _isCardVisible = true;
@@ -85,13 +87,13 @@ class _UserPageState extends State<UserPage> {
     });
   }
 
-  // Метод для создания запроса на маршрут с координатами
+
+  // Метод для создания запроса на маршрут
   Future<void> _createRouteRequest() async {
     if (_startPoint != null && _endPoint != null) {
       // Генерация GUID
       String guid = Uuid().v4();
 
-      // Получаем токен из SharedPreferences
       final prefs = await SharedPreferences.getInstance();
       String? jwtToken = prefs.getString('jwt_token');
 
@@ -100,7 +102,6 @@ class _UserPageState extends State<UserPage> {
         return;
       }
 
-      // Формирование тела запроса
       final Map<String, dynamic> requestBody = {
         "guid": guid,
         "coords_range": {
@@ -127,11 +128,16 @@ class _UserPageState extends State<UserPage> {
 
         if (response.statusCode == 200) {
           final responseJson = json.decode(response.body);
-          int requestId = responseJson['request_id'];
-          debugPrint('Запрос успешно создан. Request ID: $requestId');
+          _requestId = responseJson['request_id'];
+          debugPrint('Запрос успешно создан. Request ID: $_requestId');
 
-          // Теперь отправляем GET запрос с полученным requestId
-          await _getRequestData(requestId);
+          // Убираем кнопку "Создать запрос" и показываем кнопку "Пересоздать запрос"
+          setState(() {
+            _isRequestCreated = true;
+          });
+
+          // Получаем информацию о запросе
+          await _getRequestData(_requestId!);
         } else {
           debugPrint('Ошибка сервера: ${response.statusCode}');
         }
@@ -143,15 +149,99 @@ class _UserPageState extends State<UserPage> {
     }
   }
 
-  void _toggleMapVisibility() {
+   Future<void> _recreateRouteRequest() async {
+    if (_requestId != null) {
+      final prefs = await SharedPreferences.getInstance();
+      String? jwtToken = prefs.getString('jwt_token');
+
+      if (jwtToken == null) {
+        debugPrint("Ошибка: Не найден токен.");
+        return;
+      }
+
+      try {
+        final response = await http.patch(
+          Uri.parse('https://localhost:7247/Requests/recreate?requestId=$_requestId'),
+          headers: {
+            'Authorization': 'Bearer $jwtToken',
+            'Content-Type': 'application/json',
+          },
+        );
+
+        if (response.statusCode == 200) {
+          debugPrint('Запрос успешно пересоздан');
+
+          // Получаем информацию о пересозданном запросе
+          await _getRequestData(_requestId!);
+
+          setState(() {
+            _isRequestRecreated = true;
+            // Убираем кнопки пересоздать и создать запрос
+          });
+        } else {
+          debugPrint('Ошибка пересоздания запроса: ${response.statusCode}');
+        }
+      } catch (e) {
+        debugPrint('Ошибка сети: $e');
+      }
+    }
+  }
+
+ Future<void> _cancelRequest() async {
+    if (_requestId != null) {
+      final prefs = await SharedPreferences.getInstance();
+      String? jwtToken = prefs.getString('jwt_token');
+
+      if (jwtToken == null) {
+        debugPrint("Ошибка: Не найден токен.");
+        return;
+      }
+
+      try {
+        final response = await http.post(
+          Uri.parse('https://localhost:7247/Requests/change_status'),
+          headers: {
+            'Authorization': 'Bearer $jwtToken',
+            'Content-Type': 'application/json',
+          },
+          body: json.encode({
+            'request_id': _requestId,
+            'new_status': 'closed',
+          }),
+        );
+
+        if (response.statusCode == 200) {
+          debugPrint('Запрос успешно отменен');
+
+          // Закрытие карты и сброс состояния
+          setState(() {
+            _isMapVisible = false;
+            _isRequestCreated = false;
+            _isRequestRecreated = false;
+            _requestId = null;
+            _markers.clear();
+            _polylines.clear();
+            _startPoint = null;
+            _endPoint = null;
+          });
+        } else {
+          debugPrint('Ошибка отмены запроса: ${response.statusCode}');
+        }
+      } catch (e) {
+        debugPrint('Ошибка сети: $e');
+      }
+    }
+  }
+
+    void _toggleMapVisibility() {
     setState(() {
       _isMapVisible = !_isMapVisible;
       _isCardVisible = !_isMapVisible; // Скрываем маленькую карточку
     });
   }
 
+  // Метод для получения данных запроса (маршрута)
   Future<void> _getRequestData(int requestId) async {
-    // Получаем токен из SharedPreferences
     final prefs = await SharedPreferences.getInstance();
     String? jwtToken = prefs.getString('jwt_token');
 
@@ -162,20 +252,17 @@ class _UserPageState extends State<UserPage> {
 
     try {
       final response = await http.get(
-        Uri.parse('https://localhost:7247/Requests?requestId=${requestId}&isActive=false'),
-          headers: {
-            'Authorization': 'Bearer $jwtToken',
-            'Content-Type': 'application/json',
-          }
+        Uri.parse('https://localhost:7247/Requests?requestId=$requestId&isActive=false'),
+        headers: {
+          'Authorization': 'Bearer $jwtToken',
+          'Content-Type': 'application/json',
+        }
       );
 
       if (response.statusCode == 200) {
         debugPrint('Запрос обработан успешно.');
 
         final responseJson = json.decode(response.body);
-        
-        debugPrint(response.body);
-
         List<dynamic> segments = responseJson['initial_segments'];
         Set<Polyline> newPolylines = {};
 
@@ -198,45 +285,18 @@ class _UserPageState extends State<UserPage> {
               width: 5,
             ),
           );
-        }   
-
-        debugPrint("Кол-во сегментов: ${newPolylines.length}");
+        }
 
         setState(() {
           _polylines = newPolylines;
-        });     
+        });
 
-      } else if (response.statusCode == 400) {
-        final responseJson = json.decode(response.body);
-        String failureMessage = responseJson['failure_message'];
-        debugPrint('Ошибка запроса: $failureMessage');
-        _showFailureMessage(failureMessage);
       } else {
         debugPrint('Ошибка сервера: ${response.statusCode}');
       }
     } catch (e) {
       debugPrint('Ошибка сети: $e');
     }
-  }
-
-  void _showFailureMessage(String message) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text('Ошибка'),
-          content: Text(message),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-              child: Text('Закрыть'),
-            ),
-          ],
-        );
-      },
-    );
   }
 
   // Переход на страницу ЛК
@@ -247,8 +307,7 @@ class _UserPageState extends State<UserPage> {
     );
   }
 
-  // Метод для выхода
-  Future<void> _signOut(BuildContext context) async {
+    Future<void> _signOut(BuildContext context) async {
     await GoogleSignIn().signOut();
     final prefs = await SharedPreferences.getInstance();
     await prefs.clear();
@@ -258,208 +317,157 @@ class _UserPageState extends State<UserPage> {
       MaterialPageRoute(builder: (context) => const AuthPage()),
     );
   }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: Stack(
-        children: [
-          // Фон
-          Positioned.fill(
-            child: Image.asset(
-              'assets/background.png',
-              fit: BoxFit.cover,
-            ),
+@override
+Widget build(BuildContext context) {
+  return Scaffold(
+    body: Stack(
+      children: [
+        // Фон
+        Positioned.fill(
+          child: Image.asset(
+            'assets/background.png',
+            fit: BoxFit.cover,
           ),
-          Positioned.fill(
-            child: Container(color: Colors.black.withOpacity(0.3)),
-          ),
+        ),
+        Positioned.fill(
+          child: Container(color: Colors.black.withOpacity(0.3)),
+        ),
 
-          // Контент
-          Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                // Стартовая анимированная карточка с кнопкой
-                if (_isCardVisible)
-                  MouseRegion(
-                    onEnter: (_) {
-                      setState(() {
-                        _isCardHovered = true; // Карточка увеличивается при наведении
-                      });
-                    },
-                    onExit: (_) {
-                      setState(() {
-                        _isCardHovered = false; // Карточка возвращается к нормальному состоянию
-                      });
-                    },
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 300),
-                      width: _isCardHovered ? 380 : 350, // Увеличение карточки
-                      height: _isCardHovered ? 220 : 200, // Увеличение карточки
-                      decoration: BoxDecoration(
-                        color: _isCardHovered ? Colors.blue.withOpacity(0.3) : Colors.white.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: Colors.white, width: 2),
+        // Контент
+        SingleChildScrollView(
+          child: Column(
+            children: [
+              // Стартовая анимированная карточка с кнопкой
+              if (_isCardVisible)
+                MouseRegion(
+                  onEnter: (_) {
+                    setState(() {
+                      _isCardHovered = true; // Карточка увеличивается при наведении
+                    });
+                  },
+                  onExit: (_) {
+                    setState(() {
+                      _isCardHovered = false; // Карточка возвращается к нормальному состоянию
+                    });
+                  },
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 300),
+                    width: _isCardHovered ? 380 : 350, // Увеличение карточки
+                    height: _isCardHovered ? 220 : 200, // Увеличение карточки
+                    decoration: BoxDecoration(
+                      color: _isCardHovered ? Colors.blue.withOpacity(0.3) : Colors.white.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.white, width: 2),
+                    ),
+                    child: Center(
+                      child: ElevatedButton(
+                        onPressed: _toggleMapVisibility,
+                        child: const Text('Создать запрос на маршрут'),
                       ),
-                      child: Center(
-                        child: ElevatedButton(
-                          onPressed: _toggleMapVisibility,
-                          child: const Text('Создать запрос на маршрут'),
+                    ),
+                  ),
+                ),
+
+              const SizedBox(height: 20),
+
+              // Если запрос создан, показываем кнопки
+              if (_isRequestCreated && !_isRequestRecreated)
+                ElevatedButton(
+                  onPressed: _recreateRouteRequest,
+                  child: const Text('Пересоздать маршрут'),
+                ),
+
+              if (_isRequestRecreated)
+                ElevatedButton(
+                  onPressed: _cancelRequest,
+                  child: const Text('Отменить запрос'),
+                ),
+
+              const SizedBox(height: 20),
+
+              // Если карта видима, показываем контейнер с картой
+              if (_isMapVisible)
+                Center(
+                  child: Container(
+                    width: 600, // Увеличиваем размеры карты
+                    height: 800,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(10),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.5),
+                          blurRadius: 10,
                         ),
-                      ),
+                      ],
+                    ),
+                    child: Column(
+                      children: [
+                        Align(
+                          alignment: Alignment.topRight,
+                          child: IconButton(
+                            icon: const Icon(Icons.close),
+                            onPressed: _closeMap,
+                          ),
+                        ),
+                        Expanded(
+                          child: GoogleMap(
+                            onMapCreated: (GoogleMapController controller) {
+                              _mapController = controller;
+                            },
+                            initialCameraPosition: CameraPosition(
+                              target: LatLng(_vladimirWidth, _vladimirHeight),
+                              zoom: 10,
+                            ),
+                            markers: _markers,
+                            onTap: _onMapTapped,
+                            myLocationEnabled: true,
+                            polylines: _polylines,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-
-                const SizedBox(height: 20),
-
-                // Если флаг _isMapVisible true, показываем большую карту с формой и кнопкой
-                if (_isMapVisible)
-                  Center(
-                    child: Container(
-                      width: 600, // Увеличиваем размеры карты
-                      height: 800,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(10),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.5),
-                            blurRadius: 10,
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        children: [
-                          // Крестик для закрытия карты
-                          Align(
-                            alignment: Alignment.topRight,
-                            child: IconButton(
-                              icon: const Icon(Icons.close),
-                              onPressed: _closeMap,
-                            ),
-                          ),
-                          // Карта
-                          Expanded(
-                            child: GoogleMap(
-                              onMapCreated: (GoogleMapController controller) {
-                                _mapController = controller;
-                              },
-                              initialCameraPosition: CameraPosition(
-                                target: LatLng(_vladimirWidth, _vladimirHeight),
-                                zoom: 10,
-                              ),
-                              markers: _markers,
-                              onTap: _onMapTapped,
-                              //trafficEnabled: true,
-                              myLocationEnabled: true,
-                              polylines: _polylines
-                            ),
-                          ),
-                          // Форма для начальной и конечной точки
-                          Padding(
-                            padding: const EdgeInsets.all(8.0),
-                            child: Column(
-                              children: [
-                                // Начальная точка
-                                Row(
-                                  children: [
-                                    Text(
-                                      'Начальная точка: ',
-                                      style: TextStyle(color: Colors.black),
-                                    ),
-                                    Text(
-                                      _startPoint != null
-                                          ? '${_startPoint!.latitude}, ${_startPoint!.longitude}'
-                                          : 'Пусто',
-                                      style: TextStyle(color: Colors.black),
-                                    ),
-                                    if (_startPoint != null)
-                                      Icon(
-                                        Icons.circle,
-                                        color: Colors.green, // Зеленый цвет для начальной точки
-                                        size: 15,
-                                      ),
-                                  ],
-                                ),
-                                const SizedBox(height: 10),
-                                // Конечная точка
-                                Row(
-                                  children: [
-                                    Text(
-                                      'Конечная точка: ',
-                                      style: TextStyle(color: Colors.black),
-                                    ),
-                                    Text(
-                                      _endPoint != null
-                                          ? '${_endPoint!.latitude}, ${_endPoint!.longitude}'
-                                          : 'Пусто',
-                                      style: TextStyle(color: Colors.black),
-                                    ),
-                                    if (_endPoint != null)
-                                      Icon(
-                                        Icons.circle,
-                                        color: Colors.red, // Красный цвет для конечной точки
-                                        size: 15,
-                                      ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                          // Кнопка для создания маршрута
-                          Padding(
-                            padding: const EdgeInsets.all(8.0),
-                            child: ElevatedButton(
-                              onPressed: _startPoint != null && _endPoint != null ? _createRouteRequest : null,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: _startPoint != null && _endPoint != null ? Colors.red : Colors.grey,
-                              ),
-                              child: const Text('Создать запрос на маршрут'),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-              ],
-            ),
+                ),
+            ],
           ),
+        ),
 
-          // Профиль в правом верхнем углу
-          Positioned(
-            top: 50,
-            right: 20,
-            child: Column(
-              children: [
-                CircleAvatar(
-                  backgroundImage: widget.photoUrl.isNotEmpty
-                      ? NetworkImage(widget.photoUrl)
-                      : const AssetImage('assets/default_avatar.png') as ImageProvider,
-                  radius: 30,
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  widget.displayName,
-                  style: const TextStyle(color: Colors.white),
-                ),
-                ElevatedButton(
-                  onPressed: () => _navigateToLK(context),
-                  child: const Text("Войти в ЛК"),
-                ),
-                SizedBox(height: 10.0),
-                ElevatedButton(
-                  onPressed: () => _signOut(context),
-                  child: const Text("Выйти"),
-                ),
-              ],
-            ),
+        // Профиль в правом верхнем углу
+        Positioned(
+          top: 50,
+          right: 20,
+          child: Column(
+            children: [
+              CircleAvatar(
+                backgroundImage: widget.photoUrl.isNotEmpty
+                    ? NetworkImage(widget.photoUrl)
+                    : const AssetImage('assets/default_avatar.png') as ImageProvider,
+                radius: 30,
+              ),
+              const SizedBox(height: 10),
+              Text(
+                widget.displayName,
+                style: const TextStyle(color: Colors.white),
+              ),
+              ElevatedButton(
+                onPressed: () => _navigateToLK(context),
+                child: const Text("Войти в ЛК"),
+              ),
+              SizedBox(height: 10.0),
+              ElevatedButton(
+                onPressed: () => _signOut(context),
+                child: const Text("Выйти"),
+              ),
+            ],
           ),
+        ),
 
-          const Header(),
-          const Footer(),
-        ],
-      ),
-    );
+        const Header(),
+        const Footer(),
+      ],
+    ),
+  );
   }
 }
+
