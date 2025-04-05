@@ -302,7 +302,9 @@ class _UserPageState extends State<UserPage> {
   void _navigateToLK(BuildContext context) {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => const LkPage()),
+      MaterialPageRoute(
+        settings: RouteSettings(name: '/lk'),
+        builder: (context) => const LkPage()),
     );
   }
 
@@ -313,7 +315,9 @@ class _UserPageState extends State<UserPage> {
 
     Navigator.pushReplacement(
       context,
-      MaterialPageRoute(builder: (context) => const AuthPage()),
+      MaterialPageRoute(
+        settings: RouteSettings(name: '/login'),
+        builder: (context) => const AuthPage()),
     );
   }
 @override
@@ -359,9 +363,9 @@ Widget build(BuildContext context) {
                     ),
                     child: Center(
                       child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(backgroundColor: Colors.purple, fixedSize: Size(350, 300)),
+                        style: ElevatedButton.styleFrom(backgroundColor: Colors.purple, fixedSize: Size(270, 120)),
                         onPressed: _toggleMapVisibility,
-                        child: const Text('Создать запрос на маршрут', style: TextStyle(color: Colors.white, fontSize: 18)),
+                        child: const Text('Создать запрос на маршрут', style: TextStyle(color: Colors.white, fontSize: 16)),
                       ),
                     ),
                   ),

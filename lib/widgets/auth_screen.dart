@@ -117,6 +117,7 @@ class _SignInState extends State<SignIn> {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
+          settings: RouteSettings(name: '/main'),
           builder: (context) => UserPage(
             displayName: displayName ?? 'Неизвестный пользователь',
             email: email ?? 'Неизвестная почта',
