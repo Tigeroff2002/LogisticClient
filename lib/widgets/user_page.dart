@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -7,8 +8,9 @@ import 'package:http/http.dart' as http;
 import 'package:uuid/uuid.dart';
 import 'header.dart';
 import 'footer.dart';
-import 'package:logist_client/widgets/lk_page.dart'; // Импорт страницы ЛК
+import 'package:logist_client/widgets/lk_page.dart';
 import 'package:logist_client/widgets/auth_screen.dart';
+import 'package:geolocator/geolocator.dart';
 
 class UserPage extends StatefulWidget {
   final String displayName;
@@ -32,6 +34,12 @@ class _UserPageState extends State<UserPage> {
   LatLng? _startPoint;
   LatLng? _endPoint;
 
+  LatLng? _currentPoint;
+
+  Position? _currentPosition;
+  Stream<Position>? _positionStream;
+  StreamSubscription<Position>? _positionSubscription;
+
   double _vladimirWidth = 56.1296;
   double _vladimirHeight = 40.4093;
 
@@ -48,46 +56,175 @@ class _UserPageState extends State<UserPage> {
   bool _isRequestUnfollowed = false;
   int? _requestId;
 
-    void _onMapTapped(LatLng position) {
-    setState(() {
-      // Если обе точки уже выбраны, очищаем маркеры и начинаем заново
-      if (_startPoint != null && _endPoint != null) {
-        _markers.clear();
-        _startPoint = null;
-        _endPoint = null;
+  @override
+  void initState() {
+    super.initState();
+    _initLocation();
+  }
+
+  Future<void> _initLocation() async {
+    bool serviceEnabled;
+    LocationPermission permission;
+
+    serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      return;
+    }
+
+    permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
+        return;
+      }
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      return;
+    }
+
+    _currentPosition = await Geolocator.getCurrentPosition();
+    print("Текущая позиция: $_currentPosition");
+
+    _positionStream = Geolocator.getPositionStream(
+      locationSettings: LocationSettings(
+        accuracy: LocationAccuracy.high,
+        distanceFilter: 10, // Обновлять каждые 10 метров
+      ),
+    );
+
+    _positionSubscription = _positionStream!.listen((Position position) async {
+      setState((){
+        _currentPosition = position;
+      });
+
+      if (_isRequestFollowed){
+        await _handlePositionChange(position);
+        print("Текущая позиция обновлена по следованию: $position");        
+      }
+      else{
+        print("Текущая позиция необновлена - так как пользователь не на маршруте: $position");  
+      }     
+    });
+}
+
+  @override
+  void dispose() {
+    _positionSubscription?.cancel();
+    super.dispose();
+  }
+
+    Future<void> _handlePositionChange(Position position) async {
+      print("Отправка координат на сервер: ${position.latitude}, ${position.longitude}");
+
+      final prefs = await SharedPreferences.getInstance();
+      String? jwtToken = prefs.getString('jwt_token');
+
+      if (jwtToken == null) {
+        debugPrint("Ошибка: Не найден токен.");
+        return;
       }
 
-      // Если начальная точка еще не выбрана
-      if (_startPoint == null) {
-        _startPoint = position;
-        _markers.add(Marker(
-          markerId: MarkerId('start'),
-          position: _startPoint!,
-          infoWindow: InfoWindow(title: 'Начальная точка'),
-          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen), // Зеленый маркер
-        ));
+      final Map<String, dynamic> requestBody = {
+        "request_id": _requestId!,
+        "old_coord": {
+            "width": _currentPoint == null ? _startPoint!.latitude : _currentPoint!.latitude,
+            "heigth": _currentPoint == null ? _startPoint!.longitude : _currentPoint!.longitude,
+        },
+        "new_coord": {
+            "width": position.latitude,
+            "heigth": position.longitude,
+        }
+      };
+
+      try {
+        final response = await http.post(
+          Uri.parse('https://localhost:7247/Requests/move_user'),
+          headers: {
+            'Authorization': 'Bearer $jwtToken',
+            'Content-Type': 'application/json',
+          },
+          body: json.encode(requestBody)
+        );
+
+        if (response.statusCode == 200) {
+          debugPrint('Сервер воспринял обновление координат');
+
+          setState(() {
+            _currentPoint = LatLng(position.latitude, position.longitude);
+
+            _markers.clear();
+
+            _markers.add(Marker(
+              markerId: MarkerId('current'),
+              position: _currentPoint!,
+              infoWindow: InfoWindow(title: 'Текущая точка'),
+              icon: BitmapDescriptor.defaultMarker, // Красный маркер
+            ));
+
+            _markers.add(Marker(
+              markerId: MarkerId('end'),
+              position: _endPoint!,
+              infoWindow: InfoWindow(title: 'Конечная точка'),
+              icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed), // Красный маркер
+            ));
+          });
+        } else {
+          debugPrint('Ошибка отмены запроса: ${response.statusCode}');
+        }
+      } catch (e) {
+        debugPrint('Ошибка сети: $e');
       }
-      // Если конечная точка еще не выбрана
-      else if (_endPoint == null) {
-        _endPoint = position;
-        _markers.add(Marker(
-          markerId: MarkerId('end'),
-          position: _endPoint!,
-          infoWindow: InfoWindow(title: 'Конечная точка'),
-          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed), // Красный маркер
-        ));
-      }
-    });
+    }
+
+    void _onMapTapped(LatLng position) {
+      setState(() {
+        // Если обе точки уже выбраны, очищаем маркеры и начинаем заново
+        if (_startPoint != null && _endPoint != null) {
+          _markers.clear();
+          _startPoint = null;
+          _endPoint = null;
+          _currentPoint = null;
+        }
+
+        // Если начальная точка еще не выбрана
+        if (_startPoint == null) {
+          _startPoint = position;
+          _markers.add(Marker(
+            markerId: MarkerId('start'),
+            position: _startPoint!,
+            infoWindow: InfoWindow(title: 'Начальная точка'),
+            icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen), // Зеленый маркер
+          ));
+        }
+        // Если конечная точка еще не выбрана
+        else if (_endPoint == null) {
+          _endPoint = position;
+          _markers.add(Marker(
+            markerId: MarkerId('end'),
+            position: _endPoint!,
+            infoWindow: InfoWindow(title: 'Конечная точка'),
+            icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed), // Красный маркер
+          ));
+        }
+      });
   }
 
     void _closeMap() {
-    setState(() {
-      _isMapVisible = false;
-      _isCardVisible = true;
-      _markers.clear(); // Очистка маркеров при закрытии карты
-      _startPoint = null;
-      _endPoint = null;
-    });
+      setState(() {
+        _isMapVisible = false;
+        _isCardVisible = true;
+        _markers.clear(); // Очистка маркеров при закрытии карты
+        _startPoint = null;
+        _endPoint = null;
+        _currentPoint = null;
+        _currentPoint = null;
+        _isRequestCreated = false;
+        _isRequestRecreated = false;
+        _isRequestAccepted = false;
+        _isRequestFollowed = false;
+        _isRequestUnfollowed = false;
+      });
   }
 
 
@@ -335,11 +472,15 @@ class _UserPageState extends State<UserPage> {
             _isMapVisible = false;
             _isRequestCreated = false;
             _isRequestRecreated = false;
+            _isRequestAccepted = false;
+            _isRequestFollowed = false;
+            _isRequestUnfollowed = false;
             _requestId = null;
             _markers.clear();
             _polylines.clear();
             _startPoint = null;
             _endPoint = null;
+            _currentPoint = null;
             _isCardVisible = true;
           });
         } else {
@@ -657,7 +798,6 @@ Widget build(BuildContext context) {
             ],
           ),
         ),
-
         Positioned(
           top: 50,
           right: 20,

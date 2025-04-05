@@ -30,6 +30,7 @@ dependencies:
   google_maps_flutter: ^2.1.1
   google_maps_flutter_web: ^0.3.0
   uuid: ^3.0.4
+  geolocator: ^11.0.0
 
 flutter_icons:
   android: truef
