@@ -213,7 +213,6 @@ class _UserPageState extends State<UserPage> {
         if (response.statusCode == 200) {
           debugPrint('Запрос успешно отменен');
 
-          // Закрытие карты и сброс состояния
           setState(() {
             _isMapVisible = false;
             _isRequestCreated = false;
@@ -223,6 +222,7 @@ class _UserPageState extends State<UserPage> {
             _polylines.clear();
             _startPoint = null;
             _endPoint = null;
+            _isCardVisible = true;
           });
         } else {
           debugPrint('Ошибка отмены запроса: ${response.statusCode}');
@@ -299,7 +299,6 @@ class _UserPageState extends State<UserPage> {
     }
   }
 
-  // Переход на страницу ЛК
   void _navigateToLK(BuildContext context) {
     Navigator.push(
       context,
@@ -333,27 +332,26 @@ Widget build(BuildContext context) {
           child: Container(color: Colors.black.withOpacity(0.3)),
         ),
 
-        // Контент
-        SingleChildScrollView(
+        Center(
           child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // Стартовая анимированная карточка с кнопкой
               if (_isCardVisible)
                 MouseRegion(
                   onEnter: (_) {
                     setState(() {
-                      _isCardHovered = true; // Карточка увеличивается при наведении
+                      _isCardHovered = true;
                     });
                   },
                   onExit: (_) {
                     setState(() {
-                      _isCardHovered = false; // Карточка возвращается к нормальному состоянию
+                      _isCardHovered = false;
                     });
                   },
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 300),
-                    width: _isCardHovered ? 380 : 350, // Увеличение карточки
-                    height: _isCardHovered ? 220 : 200, // Увеличение карточки
+                    width: _isCardHovered ? 380 : 350,
+                    height: _isCardHovered ? 220 : 200,
                     decoration: BoxDecoration(
                       color: _isCardHovered ? Colors.blue.withOpacity(0.3) : Colors.white.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(10),
@@ -361,36 +359,19 @@ Widget build(BuildContext context) {
                     ),
                     child: Center(
                       child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(backgroundColor: Colors.purple, fixedSize: Size(350, 300)),
                         onPressed: _toggleMapVisibility,
-                        child: const Text('Создать запрос на маршрут'),
+                        child: const Text('Создать запрос на маршрут', style: TextStyle(color: Colors.white, fontSize: 18)),
                       ),
                     ),
                   ),
                 ),
 
-              const SizedBox(height: 20),
-
-              // Если запрос создан, показываем кнопки
-              if (_isRequestCreated && !_isRequestRecreated)
-                ElevatedButton(
-                  onPressed: _recreateRouteRequest,
-                  child: const Text('Пересоздать маршрут'),
-                ),
-
-              if (_isRequestRecreated)
-                ElevatedButton(
-                  onPressed: _cancelRequest,
-                  child: const Text('Отменить запрос'),
-                ),
-
-              const SizedBox(height: 20),
-
-              // Если карта видима, показываем контейнер с картой
               if (_isMapVisible)
                 Center(
                   child: Container(
-                    width: 600, // Увеличиваем размеры карты
-                    height: 800,
+                    width: 600, 
+                    height: 700,
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(10),
@@ -403,6 +384,19 @@ Widget build(BuildContext context) {
                     ),
                     child: Column(
                       children: [
+                        SizedBox(height: 10.0),
+                        if (!_isRequestCreated)
+                          Text(
+                            'Создание маршрута - выберите 2 точки',
+                            style: TextStyle(color: Colors.blueAccent, fontSize: 18)),
+                        if (_isRequestCreated && !_isRequestRecreated)
+                          Text(
+                            'Маршрут создан - можете пересоздать',
+                            style: TextStyle(color: Colors.blueAccent, fontSize: 18)),
+                        if (_isRequestRecreated)
+                          Text(
+                            'Маршрут пересоздан - можете отменить',
+                            style: TextStyle(color: Colors.blueAccent, fontSize: 18)),
                         Align(
                           alignment: Alignment.topRight,
                           child: IconButton(
@@ -417,7 +411,7 @@ Widget build(BuildContext context) {
                             },
                             initialCameraPosition: CameraPosition(
                               target: LatLng(_vladimirWidth, _vladimirHeight),
-                              zoom: 10,
+                              zoom: 13,
                             ),
                             markers: _markers,
                             onTap: _onMapTapped,
@@ -425,6 +419,75 @@ Widget build(BuildContext context) {
                             polylines: _polylines,
                           ),
                         ),
+                          Padding(
+                             padding: const EdgeInsets.all(8.0),
+                             child: Column(
+                               children: [
+                                 // Начальная точка
+                                 Row(
+                                   children: [
+                                     Text(
+                                       'Начальная точка: ',
+                                       style: TextStyle(color: Colors.black),
+                                     ),
+                                     Text(
+                                       _startPoint != null
+                                           ? '${_startPoint!.latitude}, ${_startPoint!.longitude}'
+                                           : 'Пусто',
+                                       style: TextStyle(color: Colors.black),
+                                     ),
+                                     if (_startPoint != null)
+                                       Icon(
+                                         Icons.circle,
+                                         color: Colors.green, // Зеленый цвет для начальной точки
+                                         size: 15,
+                                       ),
+                                   ],
+                                 ),
+                                 const SizedBox(height: 5),
+                                 // Конечная точка
+                                 Row(
+                                   children: [
+                                     Text(
+                                       'Конечная точка: ',
+                                       style: TextStyle(color: Colors.black),
+                                     ),
+                                     Text(
+                                       _endPoint != null
+                                           ? '${_endPoint!.latitude}, ${_endPoint!.longitude}'
+                                           : 'Пусто',
+                                       style: TextStyle(color: Colors.black),
+                                     ),
+                                     if (_endPoint != null)
+                                       Icon(
+                                         Icons.circle,
+                                         color: Colors.red, // Красный цвет для конечной точки
+                                         size: 15,
+                                       ),
+                                   ],
+                                 ),
+                                SizedBox(height: 5.0),
+                                if (!_isRequestCreated)
+                                Padding(
+                                  padding: const EdgeInsets.all(8.0),
+                                  child: ElevatedButton(
+                                    onPressed: _startPoint != null && _endPoint != null ? _createRouteRequest : null,
+                                    child: const Text('Создать запрос на маршрут'))),
+                                if (_isRequestCreated && !_isRequestRecreated)
+                                Padding(
+                                  padding: const EdgeInsets.all(8.0),
+                                  child: ElevatedButton(
+                                    onPressed: _startPoint != null && _endPoint != null ? _recreateRouteRequest : null,
+                                    child: const Text('Пересоздать маршрут'))),
+                                SizedBox(height: 8.0),
+                                if (_isRequestRecreated)
+                                Padding(
+                                  padding: const EdgeInsets.all(8.0),
+                                  child: ElevatedButton(
+                                    onPressed: _cancelRequest,
+                                    child: const Text('Отменить запрос'))),                       
+                               ],
+                             ))                       
                       ],
                     ),
                   ),
@@ -433,7 +496,6 @@ Widget build(BuildContext context) {
           ),
         ),
 
-        // Профиль в правом верхнем углу
         Positioned(
           top: 50,
           right: 20,
@@ -470,4 +532,3 @@ Widget build(BuildContext context) {
   );
   }
 }
-

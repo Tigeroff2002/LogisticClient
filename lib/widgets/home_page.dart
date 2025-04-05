@@ -34,10 +34,8 @@ class HomePage extends StatelessWidget {
               children: [
                 ElevatedButton(
                   onPressed: () {
-                    Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (context) => AuthPage()));
+                    Navigator.pushNamed(
+                        context, "/login");
                   },
                   child: const Text(
                     'Запуск приложения',

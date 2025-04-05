@@ -15,18 +15,18 @@ class Header extends StatelessWidget implements PreferredSizeWidget {
       left: 0,
       right: 0,
       child: Container(
-        height: 50, // Уменьшаем высоту Header
+        height: 40, // Уменьшаем высоту Header
         decoration: BoxDecoration(
           color: Colors.deepPurple,
           borderRadius: const BorderRadius.only(
-            bottomLeft: Radius.circular(15),
-            bottomRight: Radius.circular(15),
+            bottomLeft: Radius.circular(10),
+            bottomRight: Radius.circular(10),
           ),
         ),
         child: Center(
           child: const Text(
             'Сервис маршрутов',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20, color: Colors.white),
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.white),
           ),
         ),
       ),

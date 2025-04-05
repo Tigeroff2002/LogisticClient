@@ -10,7 +10,7 @@ class Footer extends StatelessWidget {
       left: 0,
       right: 0,
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(8),
         color: Colors.deepPurple,
         child: Column(
           children: [
@@ -18,7 +18,7 @@ class Footer extends StatelessWidget {
               '2025: Все права защищены',
               style: TextStyle(color: Colors.white, fontSize: 14),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 4),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -29,7 +29,7 @@ class Footer extends StatelessWidget {
                     style: TextStyle(color: Colors.white, fontSize: 14),
                   ),
                 ),
-                const SizedBox(width: 20),
+                const SizedBox(width: 10),
                 InkWell(
                   onTap: () {},
                   child: const Text(

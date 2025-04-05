@@ -112,7 +112,6 @@ class _SignInState extends State<SignIn> {
     await prefs.setString('photoUrl', account.photoUrl ?? '');
   }
 
-  /// Переход на `UserPage`
   void _navigateToUserPage(String? displayName, String? email, String? photoUrl) {
     if (mounted) {
       Navigator.pushReplacement(
