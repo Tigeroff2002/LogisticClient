@@ -41,9 +41,12 @@ class _UserPageState extends State<UserPage> {
 
   Set<Polyline> _polylines = {};
 
-  bool _isRequestCreated = false;  // Флаг для проверки, был ли создан запрос
-  bool _isRequestRecreated = false;  // Флаг для проверки, был ли пересоздан запрос
-  int? _requestId;  // ID запроса
+  bool _isRequestCreated = false; 
+  bool _isRequestRecreated = false;
+  bool _isRequestAccepted = false;
+  bool _isRequestFollowed = false;
+  bool _isRequestUnfollowed = false;
+  int? _requestId;
 
     void _onMapTapped(LatLng position) {
     setState(() {
@@ -180,6 +183,121 @@ class _UserPageState extends State<UserPage> {
           });
         } else {
           debugPrint('Ошибка пересоздания запроса: ${response.statusCode}');
+        }
+      } catch (e) {
+        debugPrint('Ошибка сети: $e');
+      }
+    }
+  }
+
+   Future<void> _acceptRequest() async {
+    if (_requestId != null) {
+      final prefs = await SharedPreferences.getInstance();
+      String? jwtToken = prefs.getString('jwt_token');
+
+      if (jwtToken == null) {
+        debugPrint("Ошибка: Не найден токен.");
+        return;
+      }
+
+      try {
+        final response = await http.post(
+          Uri.parse('https://localhost:7247/Requests/change_status'),
+          headers: {
+            'Authorization': 'Bearer $jwtToken',
+            'Content-Type': 'application/json',
+          },
+          body: json.encode({
+            'request_id': _requestId,
+            'new_status': 'accepted',
+          }),
+        );
+
+        if (response.statusCode == 200) {
+          debugPrint('Запрос успешно принят');
+
+          setState(() {
+            _isRequestAccepted = true;
+          });
+        } else {
+          debugPrint('Ошибка отмены запроса: ${response.statusCode}');
+        }
+      } catch (e) {
+        debugPrint('Ошибка сети: $e');
+      }
+    }
+  }
+
+   Future<void> _followRequest() async {
+    if (_requestId != null) {
+      final prefs = await SharedPreferences.getInstance();
+      String? jwtToken = prefs.getString('jwt_token');
+
+      if (jwtToken == null) {
+        debugPrint("Ошибка: Не найден токен.");
+        return;
+      }
+
+      try {
+        final response = await http.post(
+          Uri.parse('https://localhost:7247/Requests/change_status'),
+          headers: {
+            'Authorization': 'Bearer $jwtToken',
+            'Content-Type': 'application/json',
+          },
+          body: json.encode({
+            'request_id': _requestId,
+            'new_status': 'followed',
+          }),
+        );
+
+        if (response.statusCode == 200) {
+          debugPrint('Следование по машруту запущено');
+
+          setState(() {
+            _isRequestFollowed = true;
+          });
+        } else {
+          debugPrint('Ошибка отмены запроса: ${response.statusCode}');
+        }
+      } catch (e) {
+        debugPrint('Ошибка сети: $e');
+      }
+    }
+  }
+
+   Future<void> _unfollowRequest() async {
+    if (_requestId != null) {
+      final prefs = await SharedPreferences.getInstance();
+      String? jwtToken = prefs.getString('jwt_token');
+
+      if (jwtToken == null) {
+        debugPrint("Ошибка: Не найден токен.");
+        return;
+      }
+
+      try {
+        final response = await http.post(
+          Uri.parse('https://localhost:7247/Requests/change_status'),
+          headers: {
+            'Authorization': 'Bearer $jwtToken',
+            'Content-Type': 'application/json',
+          },
+          body: json.encode({
+            'request_id': _requestId,
+            'new_status': 'unfollowed',
+          }),
+        );
+
+        if (response.statusCode == 200) {
+          debugPrint('Следование по машруту приостановлено');
+
+          setState(() {
+            _isRequestFollowed = false;
+            _isRequestUnfollowed = true;
+          });
+        } else {
+          debugPrint('Ошибка отмены запроса: ${response.statusCode}');
         }
       } catch (e) {
         debugPrint('Ошибка сети: $e');
@@ -393,7 +511,23 @@ Widget build(BuildContext context) {
                           Text(
                             'Создание маршрута - выберите 2 точки',
                             style: TextStyle(color: Colors.blueAccent, fontSize: 18)),
-                        if (_isRequestCreated && !_isRequestRecreated)
+                        if (_isRequestAccepted && !_isRequestFollowed && !_isRequestUnfollowed)
+                          Text(
+                            'Маршрут принят и сохранен в ЛК',
+                            style: TextStyle(color: Colors.blueAccent, fontSize: 18)),
+                        if (_isRequestFollowed && !_isRequestUnfollowed)
+                          Text(
+                            'Пользователь начал следовать по маршруту',
+                            style: TextStyle(color: Colors.blueAccent, fontSize: 18)),
+                        if (!_isRequestFollowed && _isRequestUnfollowed)
+                          Text(
+                            'Пользователь приостановил следование по маршруту',
+                            style: TextStyle(color: Colors.blueAccent, fontSize: 18)),
+                        if (_isRequestFollowed && _isRequestUnfollowed)
+                          Text(
+                            'Пользователь возобновил следование по маршруту',
+                            style: TextStyle(color: Colors.blueAccent, fontSize: 18)),
+                        if (_isRequestCreated && !_isRequestRecreated && !_isRequestAccepted)
                           Text(
                             'Маршрут создан - можете пересоздать',
                             style: TextStyle(color: Colors.blueAccent, fontSize: 18)),
@@ -477,14 +611,38 @@ Widget build(BuildContext context) {
                                   child: ElevatedButton(
                                     onPressed: _startPoint != null && _endPoint != null ? _createRouteRequest : null,
                                     child: const Text('Создать запрос на маршрут'))),
-                                if (_isRequestCreated && !_isRequestRecreated)
+                                if (_isRequestCreated && !_isRequestAccepted)
+                                Padding(
+                                  padding: const EdgeInsets.all(8.0),
+                                  child: ElevatedButton(
+                                    onPressed: _acceptRequest,
+                                    child: const Text('Принять маршрут'))),
+                                if (_isRequestAccepted && !_isRequestFollowed && !_isRequestUnfollowed)
+                                Padding(
+                                  padding: const EdgeInsets.all(8.0),
+                                  child: ElevatedButton(
+                                    onPressed: _followRequest,
+                                    child: const Text('Начать следовать по маршруту'))),
+                                if (_isRequestFollowed)
+                                Padding(
+                                  padding: const EdgeInsets.all(8.0),
+                                  child: ElevatedButton(
+                                    onPressed: _unfollowRequest,
+                                    child: const Text('Приостановить следование по маршруту'))),
+                                if (!_isRequestFollowed && _isRequestUnfollowed)
+                                Padding(
+                                  padding: const EdgeInsets.all(8.0),
+                                  child: ElevatedButton(
+                                    onPressed: _followRequest,
+                                    child: const Text('Возобновить следование по маршруту'))),
+                                if (_isRequestCreated && !_isRequestRecreated && !_isRequestAccepted)
                                 Padding(
                                   padding: const EdgeInsets.all(8.0),
                                   child: ElevatedButton(
                                     onPressed: _startPoint != null && _endPoint != null ? _recreateRouteRequest : null,
                                     child: const Text('Пересоздать маршрут'))),
                                 SizedBox(height: 8.0),
-                                if (_isRequestRecreated)
+                                if (_isRequestCreated && (_isRequestRecreated || _isRequestAccepted))
                                 Padding(
                                   padding: const EdgeInsets.all(8.0),
                                   child: ElevatedButton(
