@@ -8,6 +8,7 @@ import 'package:google_sign_in_platform_interface/google_sign_in_platform_interf
 import 'package:google_sign_in_web/google_sign_in_web.dart' as web;
 import 'header.dart';
 import 'footer.dart';
+import 'package:flutter/foundation.dart';
 
 class AuthPage extends StatelessWidget {
   const AuthPage({Key? key}) : super(key: key);
@@ -51,6 +52,18 @@ class _SignInState extends State<SignIn> {
     googleSignIn.signInSilently();
   }
 
+  String get apiBaseUrl {
+    if (kIsWeb) {
+      // В продакшене будет /api
+      return const String.fromEnvironment(
+        'API_BASE_URL', 
+        defaultValue: '/api'  // Изменено на относительный путь
+      );
+    }
+    return 'http://localhost:3500'; // Для локальной разработки
+  }
+
+
   /// Проверяет, есть ли сохраненный токен
   Future<void> _checkCachedToken() async {
     final prefs = await SharedPreferences.getInstance();
@@ -88,7 +101,7 @@ class _SignInState extends State<SignIn> {
   Future<bool> _sendJWTToBackend(String jwtToken) async {
     try {
       final response = await http.get(
-        Uri.parse('http://localhost:3500/Users/me'),
+        Uri.parse('$apiBaseUrl/Users/me'),
         headers: {'Authorization': 'Bearer $jwtToken'},
       );
 

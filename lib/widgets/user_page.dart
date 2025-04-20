@@ -11,6 +11,8 @@ import 'footer.dart';
 import 'package:logist_client/widgets/lk_page.dart';
 import 'package:logist_client/widgets/auth_screen.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:flutter/foundation.dart';
+
 
 class UserPage extends StatefulWidget {
   final String displayName;
@@ -61,6 +63,18 @@ class _UserPageState extends State<UserPage> {
     super.initState();
     _initLocation();
   }
+
+  String get apiBaseUrl {
+    if (kIsWeb) {
+      // В продакшене будет /api
+      return const String.fromEnvironment(
+        'API_BASE_URL', 
+        defaultValue: '/api'  // Изменено на относительный путь
+      );
+    }
+    return 'http://localhost:3500'; // Для локальной разработки
+  }
+
 
   Future<void> _initLocation() async {
     bool serviceEnabled;
@@ -139,7 +153,7 @@ class _UserPageState extends State<UserPage> {
 
       try {
         final response = await http.post(
-          Uri.parse('http://localhost:3500/Requests/move_user'),
+          Uri.parse('$apiBaseUrl/Requests/move_user'),
           headers: {
             'Authorization': 'Bearer $jwtToken',
             'Content-Type': 'application/json',
@@ -258,7 +272,7 @@ class _UserPageState extends State<UserPage> {
 
       try {
         final response = await http.post(
-          Uri.parse('http://localhost:3500/Requests/create'),
+          Uri.parse('$apiBaseUrl/Requests/create'),
           headers: {
             'Authorization': 'Bearer $jwtToken',
             'Content-Type': 'application/json',
@@ -301,7 +315,7 @@ class _UserPageState extends State<UserPage> {
 
       try {
         final response = await http.patch(
-          Uri.parse('http://localhost:3500/Requests/recreate?requestId=$_requestId'),
+          Uri.parse('$apiBaseUrl/Requests/recreate?requestId=$_requestId'),
           headers: {
             'Authorization': 'Bearer $jwtToken',
             'Content-Type': 'application/json',
@@ -339,7 +353,7 @@ class _UserPageState extends State<UserPage> {
 
       try {
         final response = await http.post(
-          Uri.parse('http://localhost:3500/Requests/change_status'),
+          Uri.parse('$apiBaseUrl/Requests/change_status'),
           headers: {
             'Authorization': 'Bearer $jwtToken',
             'Content-Type': 'application/json',
@@ -377,7 +391,7 @@ class _UserPageState extends State<UserPage> {
 
       try {
         final response = await http.post(
-          Uri.parse('http://localhost:3500/Requests/change_status'),
+          Uri.parse('$apiBaseUrl/Requests/change_status'),
           headers: {
             'Authorization': 'Bearer $jwtToken',
             'Content-Type': 'application/json',
@@ -415,7 +429,7 @@ class _UserPageState extends State<UserPage> {
 
       try {
         final response = await http.post(
-          Uri.parse('http://localhost:3500/Requests/change_status'),
+          Uri.parse('$apiBaseUrl/Requests/change_status'),
           headers: {
             'Authorization': 'Bearer $jwtToken',
             'Content-Type': 'application/json',
@@ -454,7 +468,7 @@ class _UserPageState extends State<UserPage> {
 
       try {
         final response = await http.post(
-          Uri.parse('http://localhost:3500/Requests/change_status'),
+          Uri.parse('$apiBaseUrl/Requests/change_status'),
           headers: {
             'Authorization': 'Bearer $jwtToken',
             'Content-Type': 'application/json',
@@ -511,7 +525,7 @@ class _UserPageState extends State<UserPage> {
 
     try {
       final response = await http.get(
-        Uri.parse('http://localhost:3500/Requests?requestId=$requestId&isActive=false'),
+        Uri.parse('$apiBaseUrl/Requests?requestId=$requestId&isActive=false'),
         headers: {
           'Authorization': 'Bearer $jwtToken',
           'Content-Type': 'application/json',
