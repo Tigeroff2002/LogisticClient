@@ -139,7 +139,7 @@ class _UserPageState extends State<UserPage> {
 
       try {
         final response = await http.post(
-          Uri.parse('https://localhost:7247/Requests/move_user'),
+          Uri.parse('http://localhost:3500/Requests/move_user'),
           headers: {
             'Authorization': 'Bearer $jwtToken',
             'Content-Type': 'application/json',
@@ -258,7 +258,7 @@ class _UserPageState extends State<UserPage> {
 
       try {
         final response = await http.post(
-          Uri.parse('https://localhost:7247/Requests/create'),
+          Uri.parse('http://localhost:3500/Requests/create'),
           headers: {
             'Authorization': 'Bearer $jwtToken',
             'Content-Type': 'application/json',
@@ -301,7 +301,7 @@ class _UserPageState extends State<UserPage> {
 
       try {
         final response = await http.patch(
-          Uri.parse('https://localhost:7247/Requests/recreate?requestId=$_requestId'),
+          Uri.parse('http://localhost:3500/Requests/recreate?requestId=$_requestId'),
           headers: {
             'Authorization': 'Bearer $jwtToken',
             'Content-Type': 'application/json',
@@ -339,7 +339,7 @@ class _UserPageState extends State<UserPage> {
 
       try {
         final response = await http.post(
-          Uri.parse('https://localhost:7247/Requests/change_status'),
+          Uri.parse('http://localhost:3500/Requests/change_status'),
           headers: {
             'Authorization': 'Bearer $jwtToken',
             'Content-Type': 'application/json',
@@ -377,7 +377,7 @@ class _UserPageState extends State<UserPage> {
 
       try {
         final response = await http.post(
-          Uri.parse('https://localhost:7247/Requests/change_status'),
+          Uri.parse('http://localhost:3500/Requests/change_status'),
           headers: {
             'Authorization': 'Bearer $jwtToken',
             'Content-Type': 'application/json',
@@ -415,7 +415,7 @@ class _UserPageState extends State<UserPage> {
 
       try {
         final response = await http.post(
-          Uri.parse('https://localhost:7247/Requests/change_status'),
+          Uri.parse('http://localhost:3500/Requests/change_status'),
           headers: {
             'Authorization': 'Bearer $jwtToken',
             'Content-Type': 'application/json',
@@ -454,7 +454,7 @@ class _UserPageState extends State<UserPage> {
 
       try {
         final response = await http.post(
-          Uri.parse('https://localhost:7247/Requests/change_status'),
+          Uri.parse('http://localhost:3500/Requests/change_status'),
           headers: {
             'Authorization': 'Bearer $jwtToken',
             'Content-Type': 'application/json',
@@ -511,7 +511,7 @@ class _UserPageState extends State<UserPage> {
 
     try {
       final response = await http.get(
-        Uri.parse('https://localhost:7247/Requests?requestId=$requestId&isActive=false'),
+        Uri.parse('http://localhost:3500/Requests?requestId=$requestId&isActive=false'),
         headers: {
           'Authorization': 'Bearer $jwtToken',
           'Content-Type': 'application/json',

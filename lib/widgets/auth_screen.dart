@@ -34,6 +34,7 @@ class _SignInState extends State<SignIn> {
 
   GoogleSignIn googleSignIn = GoogleSignIn(
     clientId: "118733131205-uj4ulrnj7b9qjms7n8ba971nj2qn5hab.apps.googleusercontent.com",
+    scopes: ['email', 'profile']
   );
 
   @override
@@ -87,7 +88,7 @@ class _SignInState extends State<SignIn> {
   Future<bool> _sendJWTToBackend(String jwtToken) async {
     try {
       final response = await http.get(
-        Uri.parse('https://localhost:7247/Users/me'),
+        Uri.parse('http://localhost:3500/Users/me'),
         headers: {'Authorization': 'Bearer $jwtToken'},
       );
 

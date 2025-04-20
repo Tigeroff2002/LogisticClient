@@ -1,40 +1,20 @@
-# Install Operating system and dependencies
-FROM ubuntu:20.04
+FROM ghcr.io/cirruslabs/flutter:3.16.9 AS build
 
-ENV DEBIAN_FRONTEND=noninteractive
+# Решаем проблемы прав
+RUN git config --global --add safe.directory '*' && \
+    chmod -R 777 /sdks/flutter
 
-RUN apt-get update 
-RUN apt-get install -y curl git wget unzip libgconf-2-4 gdb libstdc++6 libglu1-mesa fonts-droid-fallback python3
-RUN apt-get clean
+WORKDIR /app
+COPY . .
 
-ENV DEBIAN_FRONTEND=dialog
-ENV PUB_HOSTED_URL=https://pub.flutter-io.cn
-ENV FLUTTER_STORAGE_BASE_URL=https://storage.flutter-io.cn
+# Сборка с явным указанием базового URL
+RUN flutter pub get && \
+    flutter build web --release --web-renderer html --base-href / 
 
-# download Flutter SDK from Flutter Github repo
-RUN git clone https://github.com/flutter/flutter.git /usr/local/flutter
+FROM nginx:stable-alpine
+# Копируем ВСЮ папку build/web
+COPY --from=build /app/build/web/ /usr/share/nginx/html/
+COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-# Set flutter environment path
-ENV PATH="/usr/local/flutter/bin:/usr/local/flutter/bin/cache/dart-sdk/bin:${PATH}"
-
-# Run flutter doctor
-RUN flutter doctor
-
-# Enable flutter web
-RUN flutter channel master
-RUN flutter upgrade
-RUN flutter config --enable-web
-
-# Copy files to container and build
-RUN mkdir /app/
-COPY . /app/
-WORKDIR /app/
-RUN flutter build web
-
-# Record the exposed port
-EXPOSE 9000
-
-# make server startup script executable and start the web server
-RUN ["chmod", "+x", "/app/server/server.sh"]
-
-ENTRYPOINT [ "/app/server/server.sh"]
+EXPOSE 3000
+CMD ["nginx", "-g", "daemon off;"]
