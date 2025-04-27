@@ -9,6 +9,7 @@ import 'package:google_sign_in_web/google_sign_in_web.dart' as web;
 import 'header.dart';
 import 'footer.dart';
 import 'package:flutter/foundation.dart';
+import 'dart:js' as js;
 
 class AuthPage extends StatelessWidget {
   const AuthPage({Key? key}) : super(key: key);
@@ -38,6 +39,10 @@ class _SignInState extends State<SignIn> {
     scopes: ['email', 'profile']
   );
 
+    String get apiBaseUrl {
+      return js.context['env']['API_BASE_URL'] ?? 'https://logistic-api';
+    }
+
   @override
   void initState() {
     super.initState();
@@ -51,18 +56,6 @@ class _SignInState extends State<SignIn> {
 
     googleSignIn.signInSilently();
   }
-
-  String get apiBaseUrl {
-    if (kIsWeb) {
-      // В продакшене будет /api
-      return const String.fromEnvironment(
-        'API_BASE_URL', 
-        defaultValue: '/api'  // Изменено на относительный путь
-      );
-    }
-    return 'http://localhost:3500'; // Для локальной разработки
-  }
-
 
   /// Проверяет, есть ли сохраненный токен
   Future<void> _checkCachedToken() async {

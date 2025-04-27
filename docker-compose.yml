@@ -6,6 +6,7 @@ services:
     container_name: logistic-client
     ports:
       - "80:80"
+      - "443:443"
     environment:
       - API_BASE_URL=/api
       - API_ORIGIN=http://logistic-api:8080  # Используем внутреннее имя сервиса

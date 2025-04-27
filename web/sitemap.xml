@@ -1,25 +1,25 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://tigeroff-logistic.com/</loc>
+    <loc>https://logistic-web.com/</loc>
     <lastmod>2023-11-15</lastmod>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://tigeroff-logistic.com/login</loc>
+    <loc>https://logistic-web.com/login</loc>
     <lastmod>2023-11-15</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://tigeroff-logistic.com/main</loc>
+    <loc>https://logistic-web.com/main</loc>
     <lastmod>2023-11-15</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
-    <loc>https://tigeroff-logistic.com/lk</loc>
+    <loc>https://logistic-web.com/lk</loc>
     <lastmod>2023-11-15</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.3</priority>
