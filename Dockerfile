@@ -13,9 +13,6 @@ FROM nginx:stable-alpine
 COPY --from=build /app/build/web/ /usr/share/nginx/html/
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-COPY certs/ /etc/nginx/ssl/
-
 EXPOSE 80
-EXPOSE 443
 
 CMD ["nginx", "-g", "daemon off;"]

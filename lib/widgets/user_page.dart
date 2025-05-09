@@ -12,7 +12,7 @@ import 'package:logist_client/widgets/lk_page.dart';
 import 'package:logist_client/widgets/auth_screen.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:flutter/foundation.dart';
-
+import 'dart:js' as js;
 
 class UserPage extends StatefulWidget {
   final String displayName;
@@ -64,16 +64,9 @@ class _UserPageState extends State<UserPage> {
     _initLocation();
   }
 
-  String get apiBaseUrl {
-    if (kIsWeb) {
-      // В продакшене будет /api
-      return const String.fromEnvironment(
-        'API_BASE_URL', 
-        defaultValue: '/api'  // Изменено на относительный путь
-      );
+      String get apiBaseUrl {
+      return js.context['env']['API_BASE_URL'] ?? 'https://localhost:7247';
     }
-    return 'http://localhost:3500'; // Для локальной разработки
-  }
 
 
   Future<void> _initLocation() async {
@@ -272,7 +265,7 @@ class _UserPageState extends State<UserPage> {
 
       try {
         final response = await http.post(
-          Uri.parse('$apiBaseUrl/Requests/create'),
+          Uri.parse('$apiBaseUrl/Requests/create/simple'),
           headers: {
             'Authorization': 'Bearer $jwtToken',
             'Content-Type': 'application/json',

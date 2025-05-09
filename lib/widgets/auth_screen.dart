@@ -40,7 +40,7 @@ class _SignInState extends State<SignIn> {
   );
 
     String get apiBaseUrl {
-      return js.context['env']['API_BASE_URL'] ?? 'https://logistic-api';
+      return js.context['env']['API_BASE_URL'] ?? 'https://localhost:7247';
     }
 
   @override
@@ -84,7 +84,7 @@ class _SignInState extends State<SignIn> {
       await _saveUserDataToCache(account, jwtToken);
       _navigateToUserPage(account.displayName, account.email, account.photoUrl);
     } else {
-      _showErrorAlert('Ошибка аутентификации');
+      _showErrorAlert('Проблема с соединением к серверу');
     }
     
     setState(() => loading = false);
@@ -225,7 +225,7 @@ class _SignInState extends State<SignIn> {
               ),
             ),
           ),
-       // Header
+        // Header
           const Header(),
 
           // Footer
