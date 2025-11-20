@@ -205,38 +205,38 @@ try {
     }
   }
 
-  // Future<void> _initSignalRConnection() async {
-  //   final prefs = await SharedPreferences.getInstance();
-  //     String? jwtToken = prefs.getString('jwt_token');
+  Future<void> _initSignalRConnection() async {
+     final prefs = await SharedPreferences.getInstance();
+     String? jwtToken = prefs.getString('jwt_token');
 
-  //     if (jwtToken == null) {
-  //       debugPrint("Ошибка: Не найден токен.");
-  //       return;
-  //     }
+       if (jwtToken == null) {
+         debugPrint("Ошибка: Не найден токен.");
+         return;
+       }
 
-  //   final options = HttpConnectionOptions(
-  //     accessTokenFactory: () => Future.value('Bearer $jwtToken'),
-  //   );
+     final options = HttpConnectionOptions(
+       accessTokenFactory: () => Future.value('Bearer $jwtToken'),
+     );
 
-  //   _hubConnection = HubConnectionBuilder()
-  //       .withUrl(
-  //         '$apiBaseUrl/logistic',
-  //         options: options)
-  //       .build();
+   _hubConnection = HubConnectionBuilder()
+         .withUrl(
+           '$apiBaseUrl/logistic',
+           options: options)
+       .build();
 
-  //   _hubConnection.on('PaymentStatusUpdated', (List<dynamic>? message) {
-  //     final status = message?[0] as String?;
-  //     if (status == 'succeeded') {
-  //       _redirectToReturnUrl();
-  //     }
-  //   });
+     _hubConnection.on('PaymentStatusUpdated', (List<dynamic>? message) {
+       final status = message?[0] as String?;
+       if (status == 'succeeded') {
+         _redirectToReturnUrl();
+       }
+     });
 
-  //   _hubConnection.start()?.catchError((error) {
-  //     if (kDebugMode) {
-  //       print('SignalR connection error: $error');
-  //     }
-  //   });
-  // }
+     _hubConnection.start()?.catchError((error) {
+       if (kDebugMode) {
+         print('SignalR connection error: $error');
+       }
+     });
+   }
 
   void _startPaymentStatusChecker(String paymentId) {
     _paymentStatusTimer = Timer.periodic(const Duration(seconds: 30), (timer) async {
