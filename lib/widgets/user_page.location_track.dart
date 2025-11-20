@@ -112,7 +112,7 @@ mixin UserPageLocationTrack on State<UserPage> implements UserStateBaseMixin
 
               markers.add(Marker(
                 markerId: MarkerId('end'),
-                position: endPoint!,
+                position: visitedPoints[0]!,
                 infoWindow: InfoWindow(title: 'Конечная точка'),
                 icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed), // Красный маркер
               ));

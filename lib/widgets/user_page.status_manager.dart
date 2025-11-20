@@ -15,7 +15,7 @@ mixin UserPageStatusManager on State<UserPage> implements UserStateBaseMixin
   bool isCardVisible = true;
 
   Future<void> createRouteRequest() async {
-    if (startPoint != null && endPoint != null) {
+    if (startPoint != null && visitedPointsCount >= 1) {
 
       String guid = Uuid().v4();
 
@@ -33,12 +33,13 @@ mixin UserPageStatusManager on State<UserPage> implements UserStateBaseMixin
           "width": startPoint!.latitude,
           "heigth": startPoint!.longitude,
         },
-        "to_be_visited_coords": [
-          {
-            "width": endPoint!.latitude,
-            "heigth": endPoint!.longitude,
-          }     
-        ]
+        "to_be_visited_coords": visitedPoints
+            .where((point) => point != null)
+            .map((point) => {
+                  "width": point!.latitude,
+                  "heigth": point.longitude,
+                })
+            .toList(),
       };
 
       try {
@@ -232,7 +233,8 @@ mixin UserPageStatusManager on State<UserPage> implements UserStateBaseMixin
             markers.clear();
             polylines.clear();
             startPoint = null;
-            endPoint = null;
+            visitedPoints = List.filled(UserStateBaseMixin.limitVisitedPoints, null);
+            visitedPointsCount = 0;
             currentPoint = null;
             isCardVisible = true;
           });
@@ -270,14 +272,36 @@ mixin UserPageStatusManager on State<UserPage> implements UserStateBaseMixin
         List<dynamic> parts = responseJson['parts'];
         Set<Polyline> newPolylines = {};
 
-        var red = 0.0;
-        var green = 0.0;
-        var blue = 0.0;
+        var hue = 0.0;
+        final double hueStep = 360.0 / 30.0;
+
+        markers.clear();
+
+        markers.add(Marker(
+          markerId: MarkerId('start'),
+          position: startPoint!,
+          infoWindow: InfoWindow(title: 'Начальная точка'),
+          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
+        ));
+
+        var visitedPointsCounter = 1;
 
         for (var part in parts){
-          var color = Color.from(alpha: 10, red: red, green: green, blue: blue);
+          hue = (hue + hueStep) % 360.0;
+
+          var color = HSLColor.fromAHSL(1.0, hue, 0.8, 0.6).toColor();
 
           var segments = part['segments'];
+
+          markers.add(Marker(
+            markerId: MarkerId('visited point $visitedPointsCounter'),
+            position: LatLng(
+              part['coords_range']['end_coord']['width'],
+              part['coords_range']['end_coord']['heigth'],
+            ),
+            infoWindow: InfoWindow(title: 'Точка посещения $visitedPointsCounter'),
+            icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
+          )); 
 
           for (var segment in segments) {
             LatLng start = LatLng(
@@ -290,18 +314,22 @@ mixin UserPageStatusManager on State<UserPage> implements UserStateBaseMixin
               segment['coords_range']['end_coord']['heigth'],
             );
 
+            var polylineId = 'Part ' + part['number'].toString() + ', segment ' + segment['number'].toString();
+
+            debugPrint('New segment added $polylineId');
+
             newPolylines.add(
               Polyline(
-                polylineId: PolylineId(segment['number'].toString()),
+                polylineId: PolylineId(polylineId),
                 points: [start, end],
                 color: color,
-                width: 5,
+                width: 2,
+                zIndex: newPolylines.length
               ),
             );
-          }    
-          red = (red + 64.0) % 256.0;
-          green = (green + 64.0) % 256.0;
-          blue = (blue + 64.0) % 256.0;      
+          }  
+             
+          visitedPointsCounter++;
         }
 
         setState(() {

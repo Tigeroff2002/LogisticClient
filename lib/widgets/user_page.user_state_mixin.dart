@@ -14,7 +14,12 @@ mixin UserStateBaseMixin on State<UserPage>
     LatLng? currentPoint;
 
     LatLng? startPoint;
-    LatLng? endPoint;
+
+    static const int limitVisitedPoints = 20;
+
+    List<LatLng?> visitedPoints = List.filled(limitVisitedPoints, null);
+
+    int visitedPointsCount = 0;
 
     Set<Polyline> polylines = {};
 
