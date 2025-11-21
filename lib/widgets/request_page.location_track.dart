@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
-import 'package:logist_client/widgets/user_page.dart';
+import 'package:logist_client/widgets/request_page.dart';
 
 import 'dart:async';
 import 'dart:convert';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:logist_client/models/RequestStatus.dart';
-import 'package:logist_client/widgets/user_page.user_state_mixin.dart';
+import 'package:logist_client/widgets/request_page.user_state_mixin.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 import 'package:geolocator/geolocator.dart';
 
-mixin UserPageLocationTrack on State<UserPage> implements UserStateBaseMixin
+mixin RequestPageLocationTrack on State<RequestPage> implements RequestStateBaseMixin
 {
     Position? currentPosition;
     Stream<Position>? positionStream;

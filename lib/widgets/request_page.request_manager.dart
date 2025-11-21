@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:logist_client/widgets/user_page.dart';
-import 'package:logist_client/widgets/user_page.user_state_mixin.dart';
+import 'package:logist_client/widgets/request_page.dart';
+import 'package:logist_client/widgets/request_page.user_state_mixin.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 import 'dart:async';
@@ -9,7 +9,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:logist_client/models/RequestStatus.dart';
 import 'package:http/http.dart' as http;
 
-mixin UserPageStatusManager on State<UserPage> implements UserStateBaseMixin
+mixin RequestPageRequestManager on State<RequestPage> implements RequestStateBaseMixin
 {
   bool isMapVisible = false;
   bool isCardVisible = true;
@@ -233,7 +233,7 @@ mixin UserPageStatusManager on State<UserPage> implements UserStateBaseMixin
             markers.clear();
             polylines.clear();
             startPoint = null;
-            visitedPoints = List.filled(UserStateBaseMixin.limitVisitedPoints, null);
+            visitedPoints = List.filled(RequestStateBaseMixin.limitVisitedPoints, null);
             visitedPointsCount = 0;
             currentPoint = null;
             isCardVisible = true;
@@ -279,7 +279,10 @@ mixin UserPageStatusManager on State<UserPage> implements UserStateBaseMixin
 
         markers.add(Marker(
           markerId: MarkerId('start'),
-          position: startPoint!,
+          position: LatLng(
+              parts[0]['coords_range']['start_coord']['width'],
+              parts[0]['coords_range']['start_coord']['heigth'],
+            ),
           infoWindow: InfoWindow(title: 'Начальная точка'),
           icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
         ));

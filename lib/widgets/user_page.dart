@@ -1,16 +1,15 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:google_sign_in/google_sign_in.dart';
-import 'package:logist_client/models/RequestStatus.dart';
-import 'package:logist_client/widgets/user_page.location_track.dart';
-import 'package:logist_client/widgets/user_page.status_manager.dart';
-import 'package:logist_client/widgets/user_page.user_state_mixin.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'header.dart';
 import 'footer.dart';
 import 'package:logist_client/widgets/lk_page.dart';
 import 'package:logist_client/widgets/auth_screen.dart';
+import 'package:logist_client/widgets/request_page.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'dart:js' as js;
 
 class UserPage extends StatefulWidget {
     final String displayName;
@@ -28,106 +27,86 @@ class UserPage extends StatefulWidget {
     _UserPageState createState() => _UserPageState();
 }
 
-class _UserPageState extends State<UserPage> with UserPageLocationTrack, UserPageStatusManager, UserStateBaseMixin {
-
-    late GoogleMapController _mapController;
-
-    double _vladimirWidth = 56.1296;
-    double _vladimirHeight = 40.4093;
+class _UserPageState extends State<UserPage> {
 
     bool _isCardHovered = false;
+
+    String get apiBaseUrl {
+      return js.context['env']['API_BASE_URL'] ?? 'https://localhost:7247';
+    }
+
+    List<dynamic> userRequests = List.empty();
 
     @override
     void initState() {
       super.initState();
-      initLocation();
+      getUserRequests();
     }
 
     @override
     void dispose() {
-      positionSubscription?.cancel();
       super.dispose();
     }
 
-    void _onMapTapped(LatLng position) {
-      setState(() {
-
-        if (startPoint != null && visitedPointsCount == UserStateBaseMixin.limitVisitedPoints) {
-          markers.clear();
-          startPoint = null;
-          visitedPoints = List.filled(UserStateBaseMixin.limitVisitedPoints, null);
-          visitedPointsCount = 0;
-          currentPoint = null;
-        }
-
-
-        if (startPoint == null) {
-          startPoint = position;
-          visitedPointsCount = 0;
-          markers.add(Marker(
-            markerId: MarkerId('start'),
-            position: startPoint!,
-            infoWindow: InfoWindow(title: 'Начальная точка'),
-            icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
-          ));
-        }
-
-        else if (visitedPoints.any((a) => a == null)) {
-          visitedPoints[visitedPointsCount++] = position;
-
-          markers.add(Marker(
-            markerId: MarkerId('visited point $visitedPointsCount'),
-            position: position,
-            infoWindow: InfoWindow(title: 'Точка для посещения $visitedPointsCount'),
-            icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
-          ));
-        }
-      });
-  }
-
-    void _closeMap() {
-      setState(() {
-        isMapVisible = false;
-        isCardVisible = true;
-        markers.clear();
-        startPoint = null;
-        visitedPoints = List.filled(UserStateBaseMixin.limitVisitedPoints, null);
-        visitedPointsCount = 0;
-        currentPoint = null;
-        currentPoint = null;
-
-        requestStatus = RequestStatus.None;
-      });
-  }
-
-  void _toggleMapVisibility() {
-    setState(() {
-      isMapVisible = !isMapVisible;
-      isCardVisible = !isMapVisible; // Скрываем маленькую карточку
-    });
-  }
-
-  void _navigateToLK(BuildContext context) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        settings: RouteSettings(name: '/lk'),
-        builder: (context) => const LkPage()),
-    );
-  }
+    void _navigateToLK(BuildContext context) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          settings: RouteSettings(name: '/lk'),
+          builder: (context) => const LkPage()),
+      );
+    }
 
     Future<void> _signOut(BuildContext context) async {
-    await GoogleSignIn().signOut();
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.clear();
+      await GoogleSignIn().signOut();
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.clear();
 
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(
-        settings: RouteSettings(name: '/login'),
-        builder: (context) => const AuthPage()),
-    );
-  }
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          settings: RouteSettings(name: '/login'),
+          builder: (context) => const AuthPage()),
+      );
+    }
+
+    Future<void> getUserRequests() async {
+      final prefs = await SharedPreferences.getInstance();
+      String? jwtToken = prefs.getString('jwt_token');
+
+      if (jwtToken == null) {
+        debugPrint("Ошибка: Не найден токен.");
+      }
+
+      try {
+        final response = await http.get(
+          Uri.parse('$apiBaseUrl/Requests/all'),
+          headers: {
+            'Authorization': 'Bearer $jwtToken',
+            'Content-Type': 'application/json',
+          }
+        );
+
+        if (response.statusCode == 200) {
+          debugPrint('Запрос обработан успешно.');
+
+          final responseJson = json.decode(response.body);
+          List<dynamic> requests = responseJson['previews'];
+
+          setState(() {
+            userRequests = requests;
+          });
+        } 
+        else if(response.statusCode == 400){
+          debugPrint('Ошибка сервера: ${response.body}');
+        }
+        else {
+          debugPrint('Ошибка сервера: ${response.body}');
+        }
+      } catch (e) {
+        debugPrint('Ошибка сети: $e');
+      }
+    }
 
 @override
 Widget build(BuildContext context) {
@@ -149,7 +128,96 @@ Widget build(BuildContext context) {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              if (isCardVisible)
+              userRequests.length == 0
+                  ? Text(
+                      'Вы пока не создали ни одного маршрута',
+                      style: TextStyle(
+                          color: Colors.deepPurple,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 20),
+                      textAlign: TextAlign.center)
+                  : Expanded(
+                      child: ListView.builder(
+                        itemCount: userRequests.length,
+                        itemBuilder: (context, index) {
+                          final request = userRequests[index];
+                          
+                          return Card(
+                            margin: EdgeInsets.all(8.0),
+                            elevation: 2.0,
+                            child: Padding(
+                              padding: EdgeInsets.all(16.0),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'ID запроса: ${request['request_id']}',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  SizedBox(height: 8),
+
+                                  ElevatedButton(
+                                    child: Text(
+                                      'Просмотреть запрос',
+                                      style: TextStyle(
+                                          fontSize: 16,
+                                          color: Colors.deepPurple),
+                                    ),
+                                    onPressed: () {
+                                      Navigator.pushReplacement(
+                                        context,
+                                        MaterialPageRoute(
+                                          settings: RouteSettings(name: '/request'),
+                                          builder: (context) => RequestPage(requestId: request['request_id']),
+                                        ),
+                                      );
+                                    },
+                                  ),                              
+                                  Row(
+                                    children: [
+                                      Container(
+                                        width: 10,
+                                        height: 10,
+                                        decoration: BoxDecoration(
+                                          color: _getStatusColor(request['status']),
+                                          shape: BoxShape.circle,
+                                        ),
+                                      ),
+                                      SizedBox(width: 8),
+                                      Text(
+                                        'Статус: ${request['status']}',
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          color: Colors.grey[700],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  SizedBox(height: 8),
+                                  Text(
+                                    'Создан: ${request['creation_date']}',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey[600],
+                                    ),
+                                  ),
+                                  Text(
+                                    'Обновлен: ${request['last_update']}',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey[600],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
                 MouseRegion(
                   onEnter: (_) {
                     setState(() {
@@ -173,166 +241,17 @@ Widget build(BuildContext context) {
                     child: Center(
                       child: ElevatedButton(
                         style: ElevatedButton.styleFrom(backgroundColor: Colors.purple, fixedSize: Size(270, 120)),
-                        onPressed: _toggleMapVisibility,
-                        child: const Text('Создать запрос на маршрут', style: TextStyle(color: Colors.white, fontSize: 16)),
-                      ),
-                    ),
-                  ),
-                ),
-
-              if (isMapVisible)
-                Center(
-                  child: Container(
-                    width: 600, 
-                    height: 700,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(10),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.5),
-                          blurRadius: 10,
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      children: [
-                        SizedBox(height: 10.0),
-                        if (requestStatus == RequestStatus.Created)
-                          Text(
-                            'Маршрут создается, ожидайте...',
-                            style: TextStyle(color: Colors.blueAccent, fontSize: 18)),
-                        if (requestStatus == RequestStatus.Calculated)
-                          Text(
-                            'Маршрут создан, можете его принять',
-                            style: TextStyle(color: Colors.blueAccent, fontSize: 18)),
-                        if (requestStatus == RequestStatus.Accepted)
-                          Text(
-                            'Маршрут принят и сохранен в ЛК',
-                            style: TextStyle(color: Colors.blueAccent, fontSize: 18)),
-                        if (requestStatus == RequestStatus.Followed)
-                          Text(
-                            'Пользователь начал/возобновил следовать по маршруту',
-                            style: TextStyle(color: Colors.blueAccent, fontSize: 18)),
-                        if (requestStatus == RequestStatus.Unfollowed)
-                          Text(
-                            'Пользователь приостановил следование по маршруту',
-                            style: TextStyle(color: Colors.blueAccent, fontSize: 18)),
-                        if (requestStatus != RequestStatus.None && requestStatus != RequestStatus.Created && requestStatus != RequestStatus.Closed)
-                          Text(
-                            'Вы также можете отменить маршрут...',
-                            style: TextStyle(color: Colors.blueAccent, fontSize: 18)),
-                        Align(
-                          alignment: Alignment.topRight,
-                          child: IconButton(
-                            icon: const Icon(Icons.close),
-                            onPressed: _closeMap,
-                          ),
-                        ),
-                        Expanded(
-                          child: GoogleMap(
-                            onMapCreated: (GoogleMapController controller) {
-                              _mapController = controller;
-                            },
-                            initialCameraPosition: CameraPosition(
-                              target: LatLng(_vladimirWidth, _vladimirHeight),
-                              zoom: 13,
-                              tilt: 45,
-                              bearing: 0,
+                        onPressed: () {
+                          Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(
+                              settings: RouteSettings(name: '/request'),
+                              builder: (context) => RequestPage(requestId: 0),
                             ),
-                            markers: markers,
-                            onTap: _onMapTapped,
-                            myLocationEnabled: true,
-                            polylines: polylines,
-                          ),
-                        ),
-                          Padding(
-                             padding: const EdgeInsets.all(8.0),
-                             child: Column(
-                               children: [
-                                 // Начальная точка
-                                 Row(
-                                   children: [
-                                     Text(
-                                       'Начальная точка: ',
-                                       style: TextStyle(color: Colors.black),
-                                     ),
-                                     Text(
-                                       startPoint != null
-                                           ? '${startPoint!.latitude}, ${startPoint!.longitude}'
-                                           : 'Пусто',
-                                       style: TextStyle(color: Colors.black),
-                                     ),
-                                     if (startPoint != null)
-                                       Icon(
-                                         Icons.circle,
-                                         color: Colors.green, // Зеленый цвет для начальной точки
-                                         size: 15,
-                                       ),
-                                   ],
-                                 ),
-                                 const SizedBox(height: 5),
-                                 // Конечная точка
-                                 Row(
-                                   children: [
-                                    //  Text(
-                                    //    'Конечная точка: ',
-                                    //    style: TextStyle(color: Colors.black),
-                                    //  ),
-                                    //  Text(
-                                    //    endPoint != null
-                                    //        ? '${endPoint!.latitude}, ${endPoint!.longitude}'
-                                    //        : 'Пусто',
-                                    //    style: TextStyle(color: Colors.black),
-                                    //  ),
-                                    //  if (endPoint != null)
-                                    //    Icon(
-                                    //      Icons.circle,
-                                    //      color: Colors.red, // Красный цвет для конечной точки
-                                    //      size: 15,
-                                    //    ),
-                                   ],
-                                 ),
-                                SizedBox(height: 5.0),
-                                if (requestStatus == RequestStatus.None)
-                                Padding(
-                                  padding: const EdgeInsets.all(8.0),
-                                  child: ElevatedButton(
-                                    onPressed: startPoint != null && visitedPointsCount >= 1 ? createRouteRequest : null,
-                                    child: const Text('Создать запрос на маршрут'))),
-                                if (requestStatus == RequestStatus.Calculated)
-                                Padding(
-                                  padding: const EdgeInsets.all(8.0),
-                                  child: ElevatedButton(
-                                    onPressed: acceptRequest,
-                                    child: const Text('Принять маршрут'))),
-                                if (requestStatus == RequestStatus.Accepted)
-                                Padding(
-                                  padding: const EdgeInsets.all(8.0),
-                                  child: ElevatedButton(
-                                    onPressed: followRequest,
-                                    child: const Text('Начать следовать по маршруту'))),
-                                if (requestStatus == RequestStatus.Followed)
-                                Padding(
-                                  padding: const EdgeInsets.all(8.0),
-                                  child: ElevatedButton(
-                                    onPressed: unfollowRequest,
-                                    child: const Text('Приостановить следование по маршруту'))),
-                                if (requestStatus == RequestStatus.Unfollowed)
-                                Padding(
-                                  padding: const EdgeInsets.all(8.0),
-                                  child: ElevatedButton(
-                                    onPressed: followRequest,
-                                    child: const Text('Возобновить следование по маршруту'))),
-                                if (requestStatus != RequestStatus.None && requestStatus != RequestStatus.Created && requestStatus != RequestStatus.Closed)
-                                Padding(
-                                  padding: const EdgeInsets.all(8.0),
-                                  child: ElevatedButton(
-                                    onPressed: finalizeRequest,
-                                    child: const Text('Закрыть запрос'))),                       
-                               ],
-                             ))                       
-                      ],
+                          );
+                        },
+                        child: const Text('Создать новый маршрут', style: TextStyle(color: Colors.white, fontSize: 16)),
+                      ),
                     ),
                   ),
                 ),
@@ -373,5 +292,24 @@ Widget build(BuildContext context) {
       ],
     ),
   );
+  }
+
+    Color _getStatusColor(String status) {
+      switch (status) {
+        case 'created':
+          return Colors.tealAccent;
+        case 'calculated':
+          return Colors.cyan;
+        case 'accepted':
+          return Colors.lightGreen;
+        case 'followed':
+          return Colors.orange;
+        case 'unfollowed':
+          return Colors.orangeAccent;
+        case 'closed':
+          return Colors.black;
+        default:
+          return Colors.grey;
+      }
   }
 }

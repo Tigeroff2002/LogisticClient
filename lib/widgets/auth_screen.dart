@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 import 'user_page.dart';
@@ -46,19 +45,18 @@ class _SignInState extends State<SignIn> {
   @override
   void initState() {
     super.initState();
-    _checkCachedToken();
-
-    googleSignIn.onCurrentUserChanged.listen((GoogleSignInAccount? account) async {
-      if (account != null) {
-        await _handleAuth(account);
+    _tryCheckCachedToken().then((value) => {
+      if (!value) {
+        googleSignIn.onCurrentUserChanged.listen((GoogleSignInAccount? account) async {
+          if (account != null) {
+            await _handleAuth(account);
+          }
+        })
       }
-    });
-
-    googleSignIn.signInSilently();
+    });    
   }
 
-  /// Проверяет, есть ли сохраненный токен
-  Future<void> _checkCachedToken() async {
+  Future<bool> _tryCheckCachedToken() async {
     final prefs = await SharedPreferences.getInstance();
     final cachedToken = prefs.getString('jwt_token');
     final cachedDisplayName = prefs.getString('displayName');
@@ -67,21 +65,28 @@ class _SignInState extends State<SignIn> {
 
     if (cachedToken != null && cachedToken.isNotEmpty) {
       final success = await _sendJWTToBackend(cachedToken);
+      
       if (success) {
         _navigateToUserPage(cachedDisplayName, cachedEmail, cachedPhotoUrl);
+
+        return true;
       }
     }
+
+    return false;
   }
 
-  /// Обрабатывает аутентификацию после получения аккаунта
   Future<void> _handleAuth(GoogleSignInAccount account) async {
     setState(() => loading = true);
     
     final jwtToken = (await account.authentication).idToken ?? '';
     final success = await _sendJWTToBackend(jwtToken);
 
+    googleSignIn.signInSilently();
+
     if (success) {
       await _saveUserDataToCache(account, jwtToken);
+
       _navigateToUserPage(account.displayName, account.email, account.photoUrl);
     } else {
       _showErrorAlert('Проблема с соединением к серверу');
@@ -90,7 +95,6 @@ class _SignInState extends State<SignIn> {
     setState(() => loading = false);
   }
 
-  /// Отправляет JWT на бэкенд и проверяет статус ответа
   Future<bool> _sendJWTToBackend(String jwtToken) async {
     try {
       final response = await http.get(
