@@ -51,6 +51,10 @@ class _RequestPageState extends State<RequestPage>
     }
 
     void _onMapTapped(LatLng position) {
+      if (requestStatus != RequestStatus.None) {
+        return;
+      }
+
       setState(() {
         if (startPoint != null && visitedPointsCount == RequestStateBaseMixin.limitVisitedPoints) {
           markers.clear();
@@ -63,23 +67,28 @@ class _RequestPageState extends State<RequestPage>
         if (startPoint == null) {
           startPoint = position;
           visitedPointsCount = 0;
-          markers.add(Marker(
-            markerId: MarkerId('start'),
-            position: startPoint!,
-            infoWindow: InfoWindow(title: 'Начальная точка'),
-            icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
-          ));
+
+          createMarkerWithLabel('Start', Colors.red).then((icon) => {
+            markers.add(Marker(
+              markerId: MarkerId('start'),
+              position: startPoint!,
+              infoWindow: InfoWindow(title: 'Начальная точка'),
+              icon: icon
+            ))
+          });
         }
 
         else if (visitedPoints.any((a) => a == null)) {
           visitedPoints[visitedPointsCount++] = position;
 
-          markers.add(Marker(
-            markerId: MarkerId('visited point $visitedPointsCount'),
-            position: position,
-            infoWindow: InfoWindow(title: 'Точка для посещения $visitedPointsCount'),
-            icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
-          ));
+          createMarkerWithLabel('Point $visitedPointsCount', Colors.green).then((icon) => {
+            markers.add(Marker(
+              markerId: MarkerId('Point $visitedPointsCount'),
+              position: position,
+              infoWindow: InfoWindow(title: 'Точка для посещения $visitedPointsCount'),
+              icon: icon
+            ))
+          });
         }
       });
   }
