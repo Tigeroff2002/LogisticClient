@@ -125,7 +125,7 @@ class _SignInState extends State<SignIn> {
 
   void _navigateToUserPage(String? displayName, String? email, String? photoUrl) {
     if (mounted) {
-      Navigator.pushReplacement(
+      Navigator.push(
         context,
         MaterialPageRoute(
           settings: RouteSettings(name: '/main'),
@@ -151,7 +151,7 @@ class _SignInState extends State<SignIn> {
             TextButton(
               onPressed: () {
                 Navigator.of(context).pop();
-                Navigator.pushReplacement(
+                Navigator.push(
                   context,
                   MaterialPageRoute(builder: (context) => const SignIn()),
                 );

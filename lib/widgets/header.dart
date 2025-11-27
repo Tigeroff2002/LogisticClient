@@ -23,11 +23,31 @@ class Header extends StatelessWidget implements PreferredSizeWidget {
             bottomRight: Radius.circular(10),
           ),
         ),
-        child: Center(
-          child: const Text(
-            'Сервис маршрутов',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.white),
-          ),
+        child: Row(
+          children: [
+            // Кнопка назад
+            IconButton(
+              icon: const Icon(Icons.arrow_back, color: Colors.white),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+            // Заголовок по центру
+            Expanded(
+              child: Center(
+                child: const Text(
+                  'Сервис маршрутов',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold, 
+                    fontSize: 18, 
+                    color: Colors.white
+                  ),
+                ),
+              ),
+            ),
+            // Пустое место для балансировки (такой же размер как кнопка назад)
+            SizedBox(width: 48),
+          ],
         ),
       ),
     );

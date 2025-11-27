@@ -274,7 +274,7 @@ try {
   }
 
   void _redirectToReturnUrl() {
-    Navigator.pushReplacement(
+    Navigator.push(
       context,
       MaterialPageRoute(
         settings: RouteSettings(name: '/lk'),

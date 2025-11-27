@@ -239,6 +239,10 @@ mixin RequestPageRequestManager on State<RequestPage> implements RequestStateBas
             currentPoint = null;
             isCardVisible = true;
           });
+
+          await Future.delayed(Duration(seconds: 3));
+
+          Navigator.of(context).pop();
         } else {
           debugPrint('Ошибка финализации запроса: ${response.body}');
         }
