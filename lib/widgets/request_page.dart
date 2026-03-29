@@ -170,8 +170,8 @@ Widget build(BuildContext context) {
               if (isMapVisible)
                 Center(
                   child: Container(
-                    width: 600, 
-                    height: 800,
+                    width: 2000, 
+                    height: 860,
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(10),
