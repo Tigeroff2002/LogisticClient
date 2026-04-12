@@ -38,9 +38,9 @@ class _SignInState extends State<SignIn> {
     scopes: ['email', 'profile']
   );
 
-    String get apiBaseUrl {
-      return js.context['env']['API_BASE_URL'] ?? 'https://localhost:7247';
-    }
+  String get apiBaseUrl {
+    return js.context['env']['API_BASE_URL'] ?? 'http://logistic-api:80';
+  }
 
   @override
   void initState() {

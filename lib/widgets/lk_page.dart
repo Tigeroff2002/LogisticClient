@@ -36,7 +36,7 @@ class _LkPageState extends State<LkPage> {
   }
 
   String get apiBaseUrl {
-    return js.context['env']['API_BASE_URL'] ?? 'https://localhost:7247';
+    return js.context['env']['API_BASE_URL'] ?? 'http://logistic-api:80';
   }
 
   @override
