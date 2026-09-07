@@ -28,7 +28,7 @@ mixin RequestPageRequestManager on State<RequestPage> implements RequestStateBas
     }
 
     _hubConnection = HubConnectionBuilder()
-        .withUrl('https://localhost:7247/logistic',
+        .withUrl('$apiBaseUrl/logistic',
             options: HttpConnectionOptions(
               accessTokenFactory: () => Future.value(jwtToken),
               transport: HttpTransportType.LongPolling, // <-- ключевое изменение
